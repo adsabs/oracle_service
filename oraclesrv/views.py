@@ -5,6 +5,7 @@ from flask_discoverer import advertise
 from requests.exceptions import HTTPError, ConnectionError
 
 import json
+import urlparse
 
 from oraclesrv.utils import get_solr_data
 
@@ -38,15 +39,12 @@ def get_user_info_from_adsws(session):
                 current_app.logger.info('got results from adsws=%s' % (r.json()))
                 return r.json()
             current_app.logger.error('got status code from adsws=%s with message %s' % (r.status_code, r.json()))
-        except HTTPError as e:
-            current_app.logger.error("Http Error: %s" % (e))
-        except ConnectionError as e:
-            current_app.logger.error("Error Connecting: %s" % (e))
         except Exception as e:
             current_app.logger.error("Exception: %s" % (e))
+            raise
     return None
 
-def get_optional_params(payload, param, default_value):
+def get_requests_params(payload, param, default_value):
     """
 
     :param payload:
@@ -80,10 +78,8 @@ def readhist(reader):
 
         if not payload:
             return return_response(results={'error': 'no information received'}, status_code=400)
-        if 'reader' in payload:
-            the_reader = payload['reader']
-        else:
-            the_reader = None
+
+        the_reader = get_requests_params(payload, 'reader', None)
 
     # if no reader, see if there is a session and reader can be extracted accordingly
     if the_reader is None:
@@ -98,11 +94,11 @@ def readhist(reader):
 
     current_app.logger.debug('received POST request with reader={the_reader} to find similiar articles'.format(the_reader=the_reader))
 
-    # read any otional params
-    sort = get_optional_params(payload, 'sort', 'entry_date')
-    num_docs = get_optional_params(payload, 'num_docs', 5)
-    cutoff_days = get_optional_params(payload, 'cutoff_days', 5)
-    top_n_reads = get_optional_params(payload, 'top_n_reads', 10)
+    # read any optional params
+    sort = get_requests_params(payload, 'sort', 'entry_date')
+    num_docs = get_requests_params(payload, 'num_docs', 5)
+    cutoff_days = get_requests_params(payload, 'cutoff_days', 5)
+    top_n_reads = get_requests_params(payload, 'top_n_reads', 10)
 
     current_app.logger.debug('with parameters: num_docs={num_docs}, sort={sort}, cutoff_days={cutoff_days}, and top_n_reads={top_n_reads}'.format(
                                                num_docs=num_docs, sort=sort, cutoff_days=cutoff_days, top_n_reads=top_n_reads))
