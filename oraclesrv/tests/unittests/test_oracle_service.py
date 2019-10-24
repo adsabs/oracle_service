@@ -19,9 +19,7 @@ class test_oracle(TestCase):
 
     def test_route_post(self):
         """
-        Tests for the existence of a /oracle/readhist route, and that it returns
-        properly formatted JSON data when the URL is supplied
-        no param is passed, so default is returned
+        Tests POST endpoint when no optional param passed in, so default is returned
         """
         r= self.client.post(path='/readhist', data='{"reader":"0000000000000000"}')
         self.assertEqual(json.loads(r.data)['query'],
@@ -29,16 +27,15 @@ class test_oracle(TestCase):
 
     def test_route_get(self):
         """
-        Tests for the existence of a /oracle/readhist route, and that it returns
-        properly formatted JSON data when the URL is supplied
+        Tests GET endpoint with default params
         """
         r= self.client.get(path='/readhist/0000000000000000')
         self.assertEqual(json.loads(r.data)['query'],
                          "(similar(topn(10, reader:0000000000000000, entry_date desc)) entdate:[NOW-5DAYS TO *])")
 
-    def test_optional_params(self):
+    def test_optional_params_post(self):
         """
-        Pass in optional params
+        Test optional params with POST
         """
         params = {'reader': '0000000000000000',
                   'sort': 'date',
@@ -49,9 +46,23 @@ class test_oracle(TestCase):
         self.assertEqual(json.loads(r.data)['query'],
                          "(similar(topn(14, reader:0000000000000000, date desc)) entdate:[NOW-12DAYS TO *])")
 
+    def test_optional_params_get(self):
+        """
+        Test optional params with GET
+        """
+        params = {'reader': '0000000000000000',
+                  'sort': 'date',
+                  'num_docs': 10,
+                  'cutoff_days': 12,
+                  'top_n_reads' : 14}
+        r= self.client.get(path='/readhist', query_string=params)
+        print r
+        self.assertEqual(json.loads(r.data)['query'],
+                         "(similar(topn(14, reader:0000000000000000, date desc)) entdate:[NOW-12DAYS TO *])")
+
     def test_route_with_session(self):
         """
-
+        Test with session when adsws is not available
         """
         # the mock is for getting the user info
         with mock.patch.object(self.current_app.client, 'get'):
@@ -62,7 +73,7 @@ class test_oracle(TestCase):
 
     def test_no_required_param(self):
         """
-
+        Test when neither reader nor session were passed in
         """
         r= self.client.post(path='/readhist', data=json.dumps({'missingReader':''}))
         self.assertEqual(json.loads(r.data)['error'],
@@ -70,17 +81,14 @@ class test_oracle(TestCase):
 
     def test_no_data(self):
         """
-
+        Test with no payload
         """
         r= self.client.post(path='/readhist', data=None)
         self.assertEqual(json.loads(r.data)['error'], "no information received")
 
     def test_adsws_call(self):
         """
-        {u'source': u'session:client_id',
-         u'hashed_client_id': u'bfa86a9d6510ebaab3fd0016ff352c82e083a415e383b9aeeca87f049ad5c169',
-         u'anonymous': True,
-         u'hashed_user_id': u'cc4cc6139c6ada12ceca56f8319a29ce9d5ec3565baac572445c7ffbbed6da3b'}
+        Test adsws call directly with session
         """
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             client_id = 'aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeeffffffffgggggggghhhhhhhh'
@@ -104,7 +112,7 @@ class test_oracle(TestCase):
 
     def test_adsws_call_exception(self):
         """
-
+        Test adsws call directly with no session
         """
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             get_mock.return_value = mock_response = mock.Mock()

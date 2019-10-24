@@ -70,6 +70,9 @@ def readhist(reader):
     if request.method == 'GET':
         the_reader = reader
         payload = request.args.to_dict(flat=False)
+        # try extracting reader from passed in parameters
+        if the_reader is None:
+            the_reader = get_requests_params(payload, 'reader', None)
     else: # request.method == 'POST':
         try:
             payload = request.get_json(force=True)  # post data in json
