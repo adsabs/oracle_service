@@ -31,11 +31,10 @@ def get_solr_data(reader, rows=5, sort='entry_date', cutoff_days=5, top_n_reads=
                     result = []
                     for doc in from_solr['response']['docs']:
                         result.append(doc['bibcode'])
-                    return result, query
+                    return result, query, 200
+                return None, query, 200
         current_app.logger.error('Solr returned {response}.'.format(response=response))
-        return None, query
-    except requests.exceptions.RequestException as e:
-        # catastrophic error. bail.
-        current_app.logger.error('Solr exception. Terminated request.')
-        current_app.logger.error(e)
-        return None, query
+        return None, query, response.status_code
+    except Exception as e:
+        current_app.logger.error('Solr exception: %s'%e)
+        raise

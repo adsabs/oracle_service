@@ -56,7 +56,6 @@ class test_oracle(TestCase):
                   'cutoff_days': 12,
                   'top_n_reads' : 14}
         r= self.client.get(path='/readhist', query_string=params)
-        print r
         self.assertEqual(json.loads(r.data)['query'],
                          "(similar(topn(14, reader:0000000000000000, date desc)) entdate:[NOW-12DAYS TO *])")
 

@@ -40,7 +40,7 @@ def get_user_info_from_adsws(session):
                 return r.json()
             current_app.logger.error('got status code from adsws=%s with message %s' % (r.status_code, r.json()))
         except Exception as e:
-            current_app.logger.error("Exception: %s" % (e))
+            current_app.logger.error('adsws exception: %s'%e)
             raise
     return None
 
@@ -106,7 +106,7 @@ def readhist(reader):
     current_app.logger.debug('with parameters: num_docs={num_docs}, sort={sort}, cutoff_days={cutoff_days}, and top_n_reads={top_n_reads}'.format(
                                                num_docs=num_docs, sort=sort, cutoff_days=cutoff_days, top_n_reads=top_n_reads))
 
-    bibcodes, query = get_solr_data(the_reader, num_docs, sort, cutoff_days, top_n_reads)
+    bibcodes, query, solr_status_code = get_solr_data(the_reader, num_docs, sort, cutoff_days, top_n_reads)
     if bibcodes:
         return return_response(results={'bibcodes':','.join(bibcodes), 'query':query}, status_code=200)
-    return return_response(results={'error': 'no result from solr', 'query': query}, status_code=404)
+    return return_response(results={'error': 'no result from solr with status code=%d'%solr_status_code, 'query': query}, status_code=404)
