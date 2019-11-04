@@ -16,25 +16,21 @@ def get_solr_data(reader, rows=5, sort='entry_date', cutoff_days=5, top_n_reads=
     """
     query = '(similar(topn({topn}, reader:{reader}, {sort} desc)) entdate:[NOW-{cutoff_days}DAYS TO *])'.format(
                      topn=top_n_reads, reader=reader, sort=sort, cutoff_days=cutoff_days)
-    try:
-        response = client().get(
-            url=current_app.config['ORACLE_SERVICE_SOLRQUERY_URL'],
-            headers={'Authorization': 'Bearer ' + current_app.config['ORACLE_SERVICE_ADSWS_API_TOKEN']},
-            params={'fl': 'bibcode', 'rows': rows, 'q': query},
-        )
-        if response.status_code == 200:
-            from_solr = response.json()
-            if from_solr.get('response'):
-                num_docs = from_solr['response'].get('numFound', 0)
-                if num_docs > 0:
-                    current_app.logger.debug('Got {num_docs} records from solr.'.format(num_docs=num_docs))
-                    result = []
-                    for doc in from_solr['response']['docs']:
-                        result.append(doc['bibcode'])
-                    return result, query, 200
-                return None, query, 200
-        current_app.logger.error('Solr returned {response}.'.format(response=response))
-        return None, query, response.status_code
-    except Exception as e:
-        current_app.logger.error('Solr exception: %s'%e)
-        raise
+
+    response = client().get(
+        url=current_app.config['ORACLE_SERVICE_SOLRQUERY_URL'],
+        headers={'Authorization': 'Bearer ' + current_app.config['ORACLE_SERVICE_ADSWS_API_TOKEN']},
+        params={'fl': 'bibcode', 'rows': rows, 'q': query},
+    )
+
+    response.raise_for_status()
+
+    from_solr = response.json()
+    num_docs = from_solr['response'].get('numFound', 0)
+    if num_docs > 0:
+        current_app.logger.debug('Got {num_docs} records from solr.'.format(num_docs=num_docs))
+        result = []
+        for doc in from_solr['response']['docs']:
+            result.append(doc['bibcode'])
+        return result, query, 200
+    return None, query, 200
