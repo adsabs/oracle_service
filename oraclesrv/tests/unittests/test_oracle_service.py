@@ -21,49 +21,57 @@ class test_oracle(TestCase):
         """
         Tests POST endpoint when no optional param passed in, so default is returned
         """
-        r= self.client.post(path='/readhist', data='{"reader":"0000000000000000"}')
-        self.assertEqual(json.loads(r.data)['query'],
-                         "(similar(topn(10, reader:0000000000000000, entry_date desc)) entdate:[NOW-5DAYS TO *])")
+        # the mock is for solr call
+        with mock.patch.object(self.current_app.client, 'get'):
+            r= self.client.post(path='/readhist', data='{"reader":"0000000000000000"}')
+            self.assertEqual(json.loads(r.data)['query'],
+                             "(similar(topn(10, reader:0000000000000000, entry_date desc)) entdate:[NOW-5DAYS TO *])")
 
     def test_route_get(self):
         """
         Tests GET endpoint with default params
         """
-        r= self.client.get(path='/readhist/0000000000000000')
-        self.assertEqual(json.loads(r.data)['query'],
-                         "(similar(topn(10, reader:0000000000000000, entry_date desc)) entdate:[NOW-5DAYS TO *])")
+        # the mock is for solr call
+        with mock.patch.object(self.current_app.client, 'get'):
+            r= self.client.get(path='/readhist/0000000000000000')
+            self.assertEqual(json.loads(r.data)['query'],
+                             "(similar(topn(10, reader:0000000000000000, entry_date desc)) entdate:[NOW-5DAYS TO *])")
 
     def test_optional_params_post(self):
         """
         Test optional params with POST
         """
-        params = {'reader': '0000000000000000',
-                  'sort': 'date',
-                  'num_docs': 10,
-                  'cutoff_days': 12,
-                  'top_n_reads' : 14}
-        r= self.client.post(path='/readhist', data=params)
-        self.assertEqual(json.loads(r.data)['query'],
-                         "(similar(topn(14, reader:0000000000000000, date desc)) entdate:[NOW-12DAYS TO *])")
+        # the mock is for solr call
+        with mock.patch.object(self.current_app.client, 'get'):
+            params = {'reader': '0000000000000000',
+                      'sort': 'date',
+                      'num_docs': 10,
+                      'cutoff_days': 12,
+                      'top_n_reads' : 14}
+            r= self.client.post(path='/readhist', data=params)
+            self.assertEqual(json.loads(r.data)['query'],
+                             "(similar(topn(14, reader:0000000000000000, date desc)) entdate:[NOW-12DAYS TO *])")
 
     def test_optional_params_get(self):
         """
         Test optional params with GET
         """
-        params = {'reader': '0000000000000000',
-                  'sort': 'date',
-                  'num_docs': 10,
-                  'cutoff_days': 12,
-                  'top_n_reads' : 14}
-        r= self.client.get(path='/readhist', query_string=params)
-        self.assertEqual(json.loads(r.data)['query'],
-                         "(similar(topn(14, reader:0000000000000000, date desc)) entdate:[NOW-12DAYS TO *])")
+        # the mock is for solr call
+        with mock.patch.object(self.current_app.client, 'get'):
+            params = {'reader': '0000000000000000',
+                      'sort': 'date',
+                      'num_docs': 10,
+                      'cutoff_days': 12,
+                      'top_n_reads' : 14}
+            r= self.client.get(path='/readhist', query_string=params)
+            self.assertEqual(json.loads(r.data)['query'],
+                             "(similar(topn(14, reader:0000000000000000, date desc)) entdate:[NOW-12DAYS TO *])")
 
     def test_route_with_session(self):
         """
         Test with session when adsws is not available
         """
-        # the mock is for getting the user info
+        # the mock is for adsws call
         with mock.patch.object(self.current_app.client, 'get'):
             cookie = 'session=.eJw9j02LgzAYhP_K8p576HbpVoQeCqGiEENdQ9ZcpKtJ_ExLjOtH6X9fEbaHgWFgnmEekEojugJca3qxgbTMwX3A2w-4wCt_i72gTlreclTUSZxXmOEPgtQUIn-3aI9nOvJYHeG5dO_CtFcttP2nZZ2Rqb3VQr-gmPGGV3TAMZ3C-TQRz98T5k-4DSo8qyVXQ8h4weOoIYvnCI-JOq4Dt2tvizRrynUCDPUk0Xd7-drK7PBbDtn3KZBOeR4jNtJop51PZ0D5GTbQd8Ks1-Adnn_261Ge.Xa8Ckw.88nMjVOHNu90gSpkY16da5SMtTA'
             r= self.client.post(path='/readhist', data={'sort': 'date'}, headers={"Cookie": cookie})
