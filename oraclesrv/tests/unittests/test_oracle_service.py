@@ -23,9 +23,9 @@ class test_oracle(TestCase):
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get'):
-            r= self.client.post(path='/readhist', data='{"reader":"0000000000000000"}')
+            r= self.client.post(path='/readhist', data='{"function":"trending", "reader":"0000000000000000"}')
             self.assertEqual(json.loads(r.data)['query'],
-                             "(similar(topn(10, reader:0000000000000000, entry_date desc)) entdate:[NOW-5DAYS TO *])")
+                             "(trending(topn(10, reader:0000000000000000, entry_date desc)) entdate:[NOW-5DAYS TO *])")
 
     def test_route_get(self):
         """
@@ -33,7 +33,7 @@ class test_oracle(TestCase):
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get'):
-            r= self.client.get(path='/readhist/0000000000000000')
+            r= self.client.get(path='/readhist/similar/0000000000000000')
             self.assertEqual(json.loads(r.data)['query'],
                              "(similar(topn(10, reader:0000000000000000, entry_date desc)) entdate:[NOW-5DAYS TO *])")
 
@@ -43,14 +43,15 @@ class test_oracle(TestCase):
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get'):
-            params = {'reader': '0000000000000000',
+            params = {'function': 'trending',
+                      'reader': '0000000000000000',
                       'sort': 'date',
                       'num_docs': 10,
                       'cutoff_days': 12,
                       'top_n_reads' : 14}
             r= self.client.post(path='/readhist', data=params)
             self.assertEqual(json.loads(r.data)['query'],
-                             "(similar(topn(14, reader:0000000000000000, date desc)) entdate:[NOW-12DAYS TO *])")
+                             "(trending(topn(14, reader:0000000000000000, date desc)) entdate:[NOW-12DAYS TO *])")
 
     def test_optional_params_get(self):
         """
@@ -58,7 +59,8 @@ class test_oracle(TestCase):
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get'):
-            params = {'reader': '0000000000000000',
+            params = {'function': 'similar',
+                      'reader': '0000000000000000',
                       'sort': 'date',
                       'num_docs': 10,
                       'cutoff_days': 12,

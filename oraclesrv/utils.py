@@ -4,7 +4,7 @@ import requests
 
 from oraclesrv.client import client
 
-def get_solr_data(reader, rows=5, sort='entry_date', cutoff_days=5, top_n_reads=10):
+def get_solr_data(function, reader, rows=5, sort='entry_date', cutoff_days=5, top_n_reads=10):
     """
 
     :param reader:
@@ -14,8 +14,8 @@ def get_solr_data(reader, rows=5, sort='entry_date', cutoff_days=5, top_n_reads=
     :param top_n_reads:
     :return:
     """
-    query = '(similar(topn({topn}, reader:{reader}, {sort} desc)) entdate:[NOW-{cutoff_days}DAYS TO *])'.format(
-                     topn=top_n_reads, reader=reader, sort=sort, cutoff_days=cutoff_days)
+    query = '({function}(topn({topn}, reader:{reader}, {sort} desc)) entdate:[NOW-{cutoff_days}DAYS TO *])'.format(
+                     function=function, topn=top_n_reads, reader=reader, sort=sort, cutoff_days=cutoff_days)
 
     response = client().get(
         url=current_app.config['ORACLE_SERVICE_SOLRQUERY_URL'],

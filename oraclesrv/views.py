@@ -58,21 +58,35 @@ def get_requests_params(payload, param, default_value):
         return payload[param]
     return default_value
 
+def verify_the_function(the_function):
+    """
+    verifies that the requested function is valid, if not returns the default `similar`
+
+    :param the_function:
+    :return:
+    """
+    if the_function in ["similar", "trending", "reviews", "useful"]:
+        return the_function
+    return 'similar'
+
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
-@bp.route('/readhist', defaults={'reader': None}, methods=['POST'])
-@bp.route('/readhist', defaults={'reader': None}, methods=['GET'])
-@bp.route('/readhist/<reader>', methods=['GET'])
-def readhist(reader):
+@bp.route('/readhist', defaults={'function': None, 'reader': None}, methods=['POST'])
+@bp.route('/readhist', defaults={'function': None, 'reader': None}, methods=['GET'])
+@bp.route('/readhist/<function>/<reader>', methods=['GET'])
+def readhist(function, reader):
     """
 
     :return:
     """
     if request.method == 'GET':
         the_reader = reader
+        the_function = function
         payload = request.args.to_dict(flat=False)
-        # try extracting reader from passed in parameters
+        # try extracting reader and/or function from passed in parameters
         if the_reader is None:
             the_reader = get_requests_params(payload, 'reader', None)
+        if the_function is None:
+            the_function = verify_the_function(get_requests_params(payload, 'function', None))
     else: # request.method == 'POST':
         try:
             payload = request.get_json(force=True)  # post data in json
@@ -83,6 +97,7 @@ def readhist(reader):
             return return_response(results={'error': 'no information received'}, status_code=400)
 
         the_reader = get_requests_params(payload, 'reader', None)
+        the_function = verify_the_function(get_requests_params(payload, 'function', None))
 
     # if no reader, see if there is a session and reader can be extracted accordingly
     if the_reader is None:
@@ -103,10 +118,10 @@ def readhist(reader):
     cutoff_days = get_requests_params(payload, 'cutoff_days', 5)
     top_n_reads = get_requests_params(payload, 'top_n_reads', 10)
 
-    current_app.logger.debug('with parameters: num_docs={num_docs}, sort={sort}, cutoff_days={cutoff_days}, and top_n_reads={top_n_reads}'.format(
-                                               num_docs=num_docs, sort=sort, cutoff_days=cutoff_days, top_n_reads=top_n_reads))
+    current_app.logger.debug('with parameters: function={the_function}, num_docs={num_docs}, sort={sort}, cutoff_days={cutoff_days}, and top_n_reads={top_n_reads}'.format(
+                                               the_function=the_function, num_docs=num_docs, sort=sort, cutoff_days=cutoff_days, top_n_reads=top_n_reads))
 
-    bibcodes, query, solr_status_code = get_solr_data(the_reader, num_docs, sort, cutoff_days, top_n_reads)
+    bibcodes, query, solr_status_code = get_solr_data(the_function, the_reader, num_docs, sort, cutoff_days, top_n_reads)
     if bibcodes:
         return return_response(results={'bibcodes':','.join(bibcodes), 'query':query}, status_code=200)
     return return_response(results={'error': 'no result from solr with status code=%d'%solr_status_code, 'query': query}, status_code=404)
