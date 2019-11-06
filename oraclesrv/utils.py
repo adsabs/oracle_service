@@ -1,26 +1,22 @@
 
 from flask import current_app
-import requests
+from fuzzywuzzy import fuzz
+
 
 from oraclesrv.client import client
+from oraclesrv.authors import get_author_score
 
-def get_solr_data(function, reader, rows=5, sort='entry_date', cutoff_days=5, top_n_reads=10):
+def get_solr_data(rows, query, fl):
     """
 
-    :param reader:
     :param rows:
-    :param sort:
-    :param cutoff_days:
-    :param top_n_reads:
+    :param query:
     :return:
     """
-    query = '({function}(topn({topn}, reader:{reader}, {sort} desc)) entdate:[NOW-{cutoff_days}DAYS TO *])'.format(
-                     function=function, topn=top_n_reads, reader=reader, sort=sort, cutoff_days=cutoff_days)
-
     response = client().get(
         url=current_app.config['ORACLE_SERVICE_SOLRQUERY_URL'],
         headers={'Authorization': 'Bearer ' + current_app.config['ORACLE_SERVICE_ADSWS_API_TOKEN']},
-        params={'fl': 'bibcode', 'rows': rows, 'q': query},
+        params={'fl': fl, 'rows': rows, 'q': query},
     )
 
     response.raise_for_status()
@@ -31,6 +27,72 @@ def get_solr_data(function, reader, rows=5, sort='entry_date', cutoff_days=5, to
         current_app.logger.debug('Got {num_docs} records from solr.'.format(num_docs=num_docs))
         result = []
         for doc in from_solr['response']['docs']:
-            result.append(doc['bibcode'])
-        return result, query, 200
-    return None, query, 200
+            if fl == 'bibcode':
+                result.append(doc['bibcode'])
+            else:
+                result.append(doc)
+        return result, response.status_code
+    return None, response.status_code
+
+def get_solr_data_recommend(function, reader, rows=5, sort='entry_date', cutoff_days=5, top_n_reads=10):
+    """
+
+    :param reader:
+    :param rows:
+    :param sort:
+    :param cutoff_days:
+    :param top_n_reads:
+    :return:
+    """
+    query = '({function}(topn({topn}, reader:{reader}, {sort} desc)) entdate:[NOW-{cutoff_days}DAYS TO *])'.format(
+               function=function, topn=top_n_reads, reader=reader, sort=sort, cutoff_days=cutoff_days)
+
+    result, status_code = get_solr_data(rows, query, fl='bibcode')
+    return result, query, status_code
+
+def get_solr_data_match(abstract, title):
+    """
+
+    :param abstract:
+    :param title:
+    :param author:
+    :return:
+    """
+    rows = 2
+    abstract = abstract.encode('ascii', 'ignore').decode('ascii')
+    # seems that title query does not work, shall check with Roman later
+    # title = title.encode('ascii', 'ignore').decode('ascii')
+    # query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 2) AND ' \
+    #                      'similar("{title}", input title, {number_matched_terms_title}, 2))'.format(rows=rows,
+    #                   abstract=abstract, number_matched_terms_abstract=int(abstract.count(' ') * 0.3),
+    #                   title=title, number_matched_terms_title=int(title.count(' ') * 0.75))
+    query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 2))'.format(rows=rows,
+                      abstract=abstract, number_matched_terms_abstract=int(abstract.count(' ') * 0.3))
+
+    result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author')
+    return result, query, status_code
+
+def score_match(abstract, title, author, matched_docs):
+    """
+
+    :param abstract:
+    :param title:
+    :param author:
+    :param matched_doc:
+    :return:
+    """
+    results = []
+    for doc in matched_docs:
+        match_abstract = doc.get('abstract', '')
+        match_title = ' '.join(doc.get('title', []))
+        match_author = doc.get('author', [])
+
+        scores = []
+        scores.append(fuzz.partial_ratio(abstract, match_abstract)/100.0)
+        scores.append(fuzz.partial_ratio(title, match_title)/100.0)
+        scores.append(get_author_score(author, match_author))
+
+        if all(score >= 0.7 for score in scores):
+            results.append({'bibcode': doc.get('bibcode', ''),
+                            'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2]}})
+    return results
