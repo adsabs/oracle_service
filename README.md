@@ -4,29 +4,28 @@
 [![Coverage Status](https://coveralls.io/repos/adsabs/oracle_service/badge.svg)](https://coveralls.io/r/adsabs/oracle_service?branch=master)
 
 
-# ADS Reference Service
+# ADS Oracle Service
 
 ## Short Summary
 
-This microservice provides article recommendation for ADS users.
-
+Service to provide article recommendation for ADS users and article match for merging records.
 
 
 ## Setup (recommended)
 
- $ virtualenv python
- $ source python/bin/activate
- $ pip install -r requirements.txt
- $ pip install -r dev-requirements.txt
- $ vim local_config.py # edit, edit
+    $ virtualenv python
+    $ source python/bin/activate
+    $ pip install -r requirements.txt
+    $ pip install -r dev-requirements.txt
+    $ vim local_config.py # edit, edit
 
- 
+    
 ## Testing
 
 On your desktop run:
 
- $ py.test
- 
+    $ py.test
+    
 
 ## API
 
