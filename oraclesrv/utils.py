@@ -59,9 +59,7 @@ def get_solr_data_match(abstract, title):
     :return:
     """
     rows = 2
-    abstract = abstract.encode('ascii', 'ignore').decode('ascii')
     # seems that title query does not work, shall check with Roman later
-    # title = title.encode('ascii', 'ignore').decode('ascii')
     # query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 2) AND ' \
     #                      'similar("{title}", input title, {number_matched_terms_title}, 2))'.format(rows=rows,
     #                   abstract=abstract, number_matched_terms_abstract=int(abstract.count(' ') * 0.3),
@@ -88,7 +86,7 @@ def score_match(abstract, title, author, matched_docs):
         match_author = doc.get('author', [])
 
         scores = []
-        scores.append(fuzz.partial_ratio(abstract, match_abstract)/100.0)
+        scores.append(fuzz.token_set_ratio(abstract, match_abstract)/100.0)
         scores.append(fuzz.partial_ratio(title, match_title)/100.0)
         scores.append(get_author_score(author, match_author))
 
