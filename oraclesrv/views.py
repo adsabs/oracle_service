@@ -155,9 +155,13 @@ def matchdoc():
     current_app.logger.debug('with parameters: abstract={abstract}, title={title}, author={author}'.format(
                                                abstract=abstract[:100]+'...', title=title, author=author))
 
+    abstract =abstract.encode('ascii', 'ignore').decode('ascii')
+    title = title.encode('ascii', 'ignore').decode('ascii')
     matched_docs, query, solr_status_code = get_solr_data_match(abstract, title)
     if matched_docs:
         match = score_match(abstract, title, author, matched_docs)
         if len(match) > 0:
             return return_response(results={'match':match, 'query':query}, status_code=200)
+        else:
+            return return_response(results={'no match': 'no document was found in solr matching the request', 'query': query}, status_code=200)
     return return_response(results={'error': 'no result from solr with status code=%d'%solr_status_code, 'query': query}, status_code=404)
