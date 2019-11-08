@@ -59,13 +59,11 @@ class test_oracle(TestCase):
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get'):
-            params = {'function': 'similar',
-                      'reader': '0000000000000000',
-                      'sort': 'date',
+            params = {'sort': 'date',
                       'num_docs': 10,
                       'cutoff_days': 12,
                       'top_n_reads' : 14}
-            r= self.client.get(path='/readhist', query_string=params)
+            r= self.client.get(path='/readhist/similar/0000000000000000', query_string=params)
             self.assertEqual(json.loads(r.data)['query'],
                              "(similar(topn(14, reader:0000000000000000, date desc)) entdate:[NOW-12DAYS TO *])")
 
