@@ -70,7 +70,6 @@ def verify_the_function(the_function):
 
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
 @bp.route('/readhist', defaults={'function': None, 'reader': None}, methods=['POST'])
-@bp.route('/readhist', defaults={'function': None, 'reader': None}, methods=['GET'])
 @bp.route('/readhist/<function>/<reader>', methods=['GET'])
 def readhist(function, reader):
     """
