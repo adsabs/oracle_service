@@ -68,40 +68,17 @@ def verify_the_function(the_function):
         return the_function
     return 'similar'
 
-@advertise(scopes=[], rate_limit=[1000, 3600 * 24])
-@bp.route('/readhist', defaults={'function': None, 'reader': None}, methods=['POST'])
-@bp.route('/readhist/<function>/<reader>', methods=['GET'])
-def readhist(function, reader):
+def read_history(session, payload, function, reader):
     """
 
+    :param session:
+    :param payload:
+    :param function:
+    :param reader:
     :return:
     """
-    current_app.logger.debug('received request with to find similar articles')
-
-    if request.method == 'GET':
-        the_reader = reader
-        the_function = function
-        payload = request.args.to_dict(flat=False)
-        # try extracting reader and/or function from passed in parameters
-        if the_reader is None:
-            the_reader = get_requests_params(payload, 'reader', None)
-        if the_function is None:
-            the_function = verify_the_function(get_requests_params(payload, 'function', None))
-    else: # request.method == 'POST':
-        try:
-            payload = request.get_json(force=True)  # post data in json
-        except:
-            payload = dict(request.form)  # post data in form encoding
-
-        if not payload:
-            return return_response(results={'error': 'no information received'}, status_code=400)
-
-        the_reader = get_requests_params(payload, 'reader', None)
-        the_function = verify_the_function(get_requests_params(payload, 'function', None))
-
     # if no reader, see if there is a session and reader can be extracted accordingly
-    if the_reader is None:
-        session = request.cookies.get('session', None)
+    if reader is None:
         if not session:
             return return_response(results={'error': 'neither reader found in payload (parameter name is `reader`) nor session information received'}, status_code=400)
         account = get_user_info_from_adsws(session)
@@ -117,12 +94,57 @@ def readhist(function, reader):
     top_n_reads = get_requests_params(payload, 'top_n_reads', 10)
 
     current_app.logger.debug('with parameters: function={the_function}, reader={the_reader}, num_docs={num_docs}, sort={sort}, cutoff_days={cutoff_days}, and top_n_reads={top_n_reads}'.format(
-                                               the_function=the_function, the_reader=the_reader, num_docs=num_docs, sort=sort, cutoff_days=cutoff_days, top_n_reads=top_n_reads))
+                                               the_function=function, the_reader=reader, num_docs=num_docs, sort=sort, cutoff_days=cutoff_days, top_n_reads=top_n_reads))
 
-    bibcodes, query, solr_status_code = get_solr_data_recommend(the_function, the_reader, num_docs, sort, cutoff_days, top_n_reads)
+    bibcodes, query, solr_status_code = get_solr_data_recommend(function, reader, num_docs, sort, cutoff_days, top_n_reads)
     if bibcodes:
         return return_response(results={'bibcodes':','.join(bibcodes), 'query':query}, status_code=200)
     return return_response(results={'error': 'no result from solr with status code=%d'%solr_status_code, 'query': query}, status_code=404)
+
+@advertise(scopes=[], rate_limit=[1000, 3600 * 24])
+@bp.route('/readhist/<function>/<reader>', methods=['GET'])
+def read_history_get(function, reader):
+    """
+
+    :param function:
+    :param reader:
+    :return:
+    """
+    current_app.logger.debug('received GET request to read history')
+
+    the_function = function
+    the_reader = reader
+    payload = request.args.to_dict(flat=False)
+    # try extracting reader and/or function from passed in parameters
+    if the_function is None:
+        the_function = verify_the_function(get_requests_params(payload, 'function', None))
+    if the_reader is None:
+        the_reader = get_requests_params(payload, 'reader', None)
+
+    return read_history(request.cookies.get('session', None), payload, the_function, the_reader)
+
+@advertise(scopes=[], rate_limit=[1000, 3600 * 24])
+@bp.route('/readhist', methods=['POST'])
+def read_history_post():
+    """
+
+    :return:
+    """
+    current_app.logger.debug('received POST request to read history')
+
+    try:
+        payload = request.get_json(force=True)  # post data in json
+    except:
+        payload = dict(request.form)  # post data in form encoding
+
+    if not payload:
+        current_app.logger.error("no payload")
+        return return_response(results={'error': 'no information received'}, status_code=400)
+
+    the_function = verify_the_function(get_requests_params(payload, 'function', None))
+    the_reader = get_requests_params(payload, 'reader', None)
+
+    return read_history(request.cookies.get('session', None), payload, the_function, the_reader)
 
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
 @bp.route('/matchdoc', methods=['POST'])
