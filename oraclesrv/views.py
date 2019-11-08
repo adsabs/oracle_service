@@ -85,7 +85,7 @@ def read_history(session, payload, function, reader):
         if not account:
             return return_response(results={'error': 'unable to obtain reader id'}, status_code=400)
         client_id = account['hashed_client_id']
-        the_reader = client_id[:16]
+        reader = client_id[:16]
 
     # read any optional params
     sort = get_requests_params(payload, 'sort', 'entry_date')
