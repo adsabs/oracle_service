@@ -26,7 +26,12 @@ def count_matching_authors(ref_authors, ads_authors):
 
     try:
         ads_authors_lastname = [a.split(",")[0].strip() for a in ads_authors]
-        ref_authors_lastname = [a.split()[-1].strip() for a in ref_authors.split(",")]
+        # if the ref_authors are lastname, firstname;...
+        if ';' in ref_authors:
+            ref_authors_lastname = [a.split(',')[0].strip() for a in ref_authors.split(";")]
+        # otherwise if ref_authors are firstname lastname,...
+        else:
+            ref_authors_lastname = [a.split()[-1].strip() for a in ref_authors.split(",")]
 
         ads_first_author = ads_authors_lastname[0]
         first_author_missing = ads_first_author not in ref_authors
