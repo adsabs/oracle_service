@@ -5,5 +5,8 @@ flask-discoverer==0.1.4
 Flask-RESTful==0.3.6
 Flask-Testing==0.6.2
 fuzzywuzzy==0.17.0
-Werkzeug==0.15.3
+html==1.16.0
+python-levenshtein==0.12.0
+Werkzeug==0.16.0
+
 

@@ -2,10 +2,9 @@
 
 from flask import current_app, request, Blueprint, Response
 from flask_discoverer import advertise
-from requests.exceptions import HTTPError, ConnectionError
 
 import json
-import urlparse
+from HTMLParser import HTMLParser
 
 from oraclesrv.utils import get_solr_data_recommend, get_solr_data_match, score_match
 
@@ -155,8 +154,10 @@ def matchdoc():
     current_app.logger.debug('with parameters: abstract={abstract}, title={title}, author={author}'.format(
                                                abstract=abstract[:100]+'...', title=title, author=author))
 
-    abstract =abstract.encode('ascii', 'ignore').decode('ascii')
-    title = title.encode('ascii', 'ignore').decode('ascii')
+    html_parser = HTMLParser()
+    abstract = html_parser.unescape(abstract).encode('ascii', 'ignore').decode('ascii')
+    title = html_parser.unescape(title).encode('ascii', 'ignore').decode('ascii')
+    author = html_parser.unescape(author).encode('ascii', 'ignore').decode('ascii')
     matched_docs, query, solr_status_code = get_solr_data_match(abstract, title)
     if matched_docs:
         match = score_match(abstract, title, author, matched_docs)
