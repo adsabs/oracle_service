@@ -88,16 +88,11 @@ def get_author_score(ref_authors, ads_authors):
     (missing_in_ref, missing_in_ads, matching_authors, first_author_missing
      ) = count_matching_authors(ref_authors, ads_authors)
 
-    normalizer = float(len(ads_authors))
-
     # if the first author is missing, apply the factor by which matching authors are discounted
     if first_author_missing:
         matching_authors *= 0.3
 
-    if normalizer != 0:
-        score = (matching_authors - missing_in_ads) / normalizer
-    else:
-        score = 0
+    score = matching_authors / float(len(ads_authors))
 
     return max(0, min(1, score))
 
