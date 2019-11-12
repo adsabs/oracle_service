@@ -8,7 +8,7 @@
 
 ## Short Summary
 
-Service to provide article recommendation for ADS users and article match for merging records.
+Service that suggests article of interest to the reader based on their history or based on other readers with similar interests’ current reads. Also, when articles published in arXiv and by publisher both become available this service advices and scores their similarity for possible merging. These services are mostly for use by ADS.
 
 
 ## Setup (recommended)
