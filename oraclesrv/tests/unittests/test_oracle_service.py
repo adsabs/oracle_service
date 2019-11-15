@@ -11,6 +11,7 @@ import mock
 
 import oraclesrv.app as app
 from oraclesrv.views import get_user_info_from_adsws
+from oraclesrv.score import clean_data
 
 class test_oracle(TestCase):
     def create_app(self):
@@ -153,11 +154,11 @@ class test_oracle(TestCase):
                                                              u'docs': [{u'title': [u'Statistical analysis of Curiosity data shows no evidence for a strong seasonal cycle of Martian methane'],
                                                                         u'abstract': u'Using Gaussian process regression to analyze the Martian surface methane Tunable Laser Spectrometer (TLS) data reported by Webster et al. (2018), we find that the TLS data, taken as a whole, do not indicate seasonal variability. Enrichment protocol CH<SUB>4</SUB> data are consistent with either stochastic variation or a spread of periods without seasonal preference.',
                                                                         u'bibcode': u'2020Icar..33613407G',
-                                                                        u'author': [u'Gillen, Edward', u'Rimmer, Paul B.', u'Catling, David C.']},
+                                                                        u'author_norm': [u'Gillen, E', u'Rimmer, P', u'Catling, D']},
                                                                        {u'title': [u'Radiometric Calibration of Tls Intensity: Application to Snow Cover Change Detection'],
                                                                         u'abstract': u'This paper reports on the radiometric calibration and the use of calibrated intensity data in applications related to snow cover monitoring with a terrestrial laser scanner (TLS). An application of the calibration method to seasonal snow cover change detection is investigated. The snow intensity from TLS data was studied in Sodankyl\xe4, Finland during the years 2008-2009 and in Kirkkonummi, Finland in the winter 2010-2011. The results were used to study the behaviour of TLS intensity data on different types of snow and measurement geometry. The results show that the snow type seems to have little or no effect on the incidence angle behaviour of the TLS intensity and that the laser backscatter from the snow surface is not directly related to any of the snow cover properties, but snow structure has a clear effect on TLS intensity.',
                                                                         u'bibcode': u'2011ISPAr3812W.175A',
-                                                                        u'author': [u'Anttila, K.', u'Kaasalainen, S.', u'Krooks, A.', u'Kaartinen, H.', u'Kukko, A.', u'Manninen, T.', u'Lahtinen, P.', u'Siljamo, N.']}
+                                                                        u'author_norm': [u'Anttila, K', u'Kaasalainen, S', u'Krooks, A', u'Kaartinen, H', u'Kukko, A', u'Manninen, T', u'Lahtinen, P', u'Siljamo, N']}
                                                                        ]
                                                              }
                                                }
@@ -167,6 +168,13 @@ class test_oracle(TestCase):
             r= self.client.post(path='/matchdoc', data=json.dumps(data))
             self.assertEqual(json.loads(r.data)['query'],
                              'topn(2, similar("Using Gaussian Process regression to analyze the Martian surface methane Tunable Laser Spectrometer (TLS) data reported by Webster (2018), we find that the TLS data, taken as a whole, are not statistically consistent with seasonal variability. The subset of data derived from an enrichment protocol of TLS, if considered in isolation, are equally consistent with either stochastic processes or periodic variability, but the latter does not favour seasonal variation.", input abstract, 20, 2))')
+
+    def test_clean_data(self):
+        """
+        Tests routine that cleans abstract and title
+        """
+        abstract = "\x01An    investigation"
+        self.assertEqual(clean_data(abstract), "An investigation")
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,10 +1,8 @@
 
 from flask import current_app
-from fuzzywuzzy import fuzz
-
+import requests
 
 from oraclesrv.client import client
-from oraclesrv.authors import get_author_score
 
 def get_solr_data(rows, query, fl):
     """
@@ -47,8 +45,14 @@ def get_solr_data_recommend(function, reader, rows=5, sort='entry_date', cutoff_
     query = '({function}(topn({topn}, reader:{reader}, {sort} desc)) entdate:[NOW-{cutoff_days}DAYS TO *])'.format(
                function=function, topn=top_n_reads, reader=reader, sort=sort, cutoff_days=cutoff_days)
 
-    result, status_code = get_solr_data(rows, query, fl='bibcode')
+    try:
+        result, status_code = get_solr_data(rows, query, fl='bibcode')
+    except requests.exceptions.HTTPError as e:
+        current_app.logger.error(e)
+        result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
+        status_code = e.response.status_code
     return result, query, status_code
+
 
 def get_solr_data_match(abstract, title):
     """
@@ -59,48 +63,20 @@ def get_solr_data_match(abstract, title):
     :return:
     """
     rows = 2
+    # if there is an abstract, query solr on that, otherwise query on title
+    # note that it seems when abstract is available combining querying abstract and title does not work
     if abstract.lower() != 'not available':
-        # seems that title query does not work, shall check with Roman later
-        # query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 2) AND ' \
-        #                      'similar("{title}", input title, {number_matched_terms_title}, 2))'.format(rows=rows,
-        #                   abstract=abstract, number_matched_terms_abstract=int(abstract.count(' ') * 0.3),
-        #                   title=title, number_matched_terms_title=int(title.count(' ') * 0.75))
         query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 2))'.format(rows=rows,
                           abstract=abstract, number_matched_terms_abstract=int(abstract.count(' ') * 0.3))
     else:
         query = 'topn({rows}, similar("{title}", input title, {number_matched_terms_title}, 2))'.format(rows=rows,
                           title=title, number_matched_terms_title=int(title.count(' ') * 0.75))
 
-    result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author')
+    try:
+        result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm')
+    except requests.exceptions.HTTPError as e:
+        current_app.logger.error(e)
+        result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
+        status_code = e.response.status_code
+
     return result, query, status_code
-
-def score_match(abstract, title, author, matched_docs):
-    """
-
-    :param abstract:
-    :param title:
-    :param author:
-    :param matched_doc:
-    :return:
-    """
-    results = []
-    for doc in matched_docs:
-        match_abstract = doc.get('abstract', '').encode('ascii', 'ignore').decode('ascii')
-        match_title = ' '.join(doc.get('title', [])).encode('ascii', 'ignore').decode('ascii')
-        match_author = [a.encode('ascii', 'ignore').decode('ascii') for a in doc.get('author', [])]
-
-        scores = []
-        if abstract.lower() != 'not available':
-            scores.append(fuzz.token_set_ratio(abstract, match_abstract)/100.0)
-        scores.append(fuzz.partial_ratio(title, match_title)/100.0)
-        scores.append(get_author_score(author, match_author))
-
-        if all(score >= 0.7 for score in scores):
-            if len(scores) == 3:
-                results.append({'bibcode': doc.get('bibcode', ''),
-                                'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2]}})
-            elif len(scores) == 2:
-                results.append({'bibcode': doc.get('bibcode', ''),
-                                'scores': {'title': scores[0], 'author': scores[1]}})
-
-    return results
