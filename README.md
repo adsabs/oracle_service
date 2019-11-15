@@ -36,7 +36,7 @@ On your desktop run:
 
 To get recommendation you do a POST request to the endpoint
 
-    https://api.adsabs.harvard.edu/v1/oracle/readhist
+    https://api.adsabs.harvard.edu/v1/_oracle/readhist
 
 within the POST, payload can have the following optinal prameters `function`, `sort`, `num_docs`, `cutoff_days`, and `top_n_reads`.
 * Possible values for parameter `function` are: `similar`, `trending`, `useful`, and `reviews`. Default is `similar`.
@@ -58,7 +58,7 @@ produces the query:
 
 To call oracle service `/readhist` do
 
-    curl -H "Authorization: Bearer <your API token>" -H "Content-Type: application/json" -X POST -d '{"function": "similar", "sort": "entry_date", "num_docs": 5, "cutoff_days": 5, "top_n_reads": 10}' https://api.adsabs.harvard.edu/v1/oracle/readhist
+    curl -H "Authorization: Bearer <your API token>" -H "Content-Type: application/json" -X POST -d '{"function": "similar", "sort": "entry_date", "num_docs": 5, "cutoff_days": 5, "top_n_reads": 10}' https://api.adsabs.harvard.edu/v1/_oracle/readhist
 
 and the API then responds in JSON with query that was executed and the list of bibcodes returned from the query.
 
@@ -77,7 +77,7 @@ within the POST, payload should have the following required prameters `abstract`
 
 To call oracle service `/matchdoc` do
 
-    curl -H "Authorization: Bearer <your API token>" -H "Content-Type: application/json" -X POST -d '{"abstract": "<abstract text>", "title": "<title text>", "author": <"comma separated author list">}' https://api.adsabs.harvard.edu/v1/oracle/matchdoc
+    curl -H "Authorization: Bearer <your API token>" -H "Content-Type: application/json" -X POST -d '{"abstract": "<abstract text>", "title": "<title text>", "author": <"comma separated author list">}' https://api.adsabs.harvard.edu/v1/_oracle/matchdoc
 
 and the API then responds in JSON with query that was executed and the list of bibcodes with their corresponding scores for matched abstract, title and author.
 
