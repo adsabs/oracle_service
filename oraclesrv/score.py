@@ -208,7 +208,7 @@ def clean_data(input):
 
     # this is for abstract
     # if paragraphs so we need to make sure that we keep this information.
-    output = ''.join([l.strip() and l.strip() + ' ' or '<P />' for l in input])
+    output = ''.join([' '.join(l.strip().split()) and ' '.join(l.strip().split()) + ' ' or '<P />' for l in input])
     output = output.strip().replace('"', '').replace('$', '').decode('utf_8')
 
     return output
