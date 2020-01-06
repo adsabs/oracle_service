@@ -6,7 +6,7 @@ from flask_discoverer import advertise
 import json
 
 from oraclesrv.utils import get_solr_data_recommend, get_solr_data_match
-from oraclesrv.score import clean_data, score_match, encode_author
+from oraclesrv.score import clean_data, score_match, encode_author, format_author
 
 
 bp = Blueprint('oracle_service', __name__)
@@ -167,20 +167,22 @@ def matchdoc():
     abstract = get_requests_params(payload, 'abstract', None)
     title = get_requests_params(payload, 'title', None)
     author = get_requests_params(payload, 'author', None)
+    year = get_requests_params(payload, 'year', None)
+    doctype = get_requests_params(payload, 'doctype', None)
 
-    if not (abstract and title and author):
+    if not (abstract and title and author and year and doctype):
         current_app.logger.error('missing required parameter(s)')
-        return return_response(results={'error': 'all three parameters are required: `abstract`, `title`, and `author`'}, status_code=400)
+        return return_response(results={'error': 'all five parameters are required: `abstract`, `title`, `author`, `year`,  and `doctype`'}, status_code=400)
 
-    current_app.logger.debug('with parameters: abstract={abstract}, title={title}, author={author}'.format(
-                                               abstract=abstract[:100]+'...', title=title, author=author))
+    current_app.logger.debug('with parameters: abstract={abstract}, title={title}, author={author}, year={year}, doctype={doctype}'.format(
+                                               abstract=abstract[:100]+'...', title=title, author=author, year=year, doctype=doctype))
 
     abstract = clean_data(abstract)
     title = clean_data(title)
-    author = encode_author(author)
+    author = format_author(encode_author(author))
     results, query, solr_status_code = get_solr_data_match(abstract, title)
     if solr_status_code == 200:
-        match = score_match(abstract, title, author, results)
+        match = score_match(abstract, title, author, year, doctype, results)
         if len(match) > 0:
             return return_response(results={'match':match, 'query':query}, status_code=200)
         else:

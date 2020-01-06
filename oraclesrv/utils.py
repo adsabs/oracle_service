@@ -62,18 +62,18 @@ def get_solr_data_match(abstract, title):
     :param author:
     :return:
     """
-    rows = 2
+    rows = 10
     # if there is an abstract, query solr on that, otherwise query on title
     # note that it seems when abstract is available combining querying abstract and title does not work
     if abstract.lower() != 'not available':
-        query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 2))'.format(rows=rows,
+        query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 1, 1))'.format(rows=rows,
                           abstract=abstract, number_matched_terms_abstract=int(abstract.count(' ') * 0.3))
     else:
-        query = 'topn({rows}, similar("{title}", input title, {number_matched_terms_title}, 2))'.format(rows=rows,
+        query = 'topn({rows}, similar("{title}", input title, {number_matched_terms_title}, 1, 1))'.format(rows=rows,
                           title=title, number_matched_terms_title=int(title.count(' ') * 0.75))
 
     try:
-        result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm')
+        result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
