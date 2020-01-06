@@ -35,7 +35,10 @@ def count_matching_authors(ref_authors, ads_authors):
         # if the ref_authors are lastname, firstname;...
         if ';' in ref_authors:
             ref_authors_lastname = [a.split(',')[0].strip() for a in ref_authors.split(";")]
-        # otherwise if ref_authors are firstname lastname,...
+        # else if there is only one author
+        elif ref_authors.count(",") == 1:
+            ref_authors_lastname = [ref_authors.split(',')[0].strip()]
+        # finally if ref_authors are firstname lastname,...
         else:
             ref_authors_lastname = [a.split()[-1].strip() for a in ref_authors.split(",")]
 
@@ -102,7 +105,15 @@ def get_author_score(ref_authors, ads_authors):
 
     return max(0, min(1, score))
 
-def score_match(abstract, title, author, matched_docs):
+def passing_score(scores):
+    """
+
+    :param scores:
+    :return:
+    """
+    return sum([1 for score in scores if score >= 0.8]) >= len(scores) - 1
+
+def score_match(abstract, title, author, year, doctype, matched_docs):
     """
 
     :param abstract:
@@ -111,25 +122,31 @@ def score_match(abstract, title, author, matched_docs):
     :param matched_doc:
     :return:
     """
+    doctype_matching_eprint = ['article', 'inproceedings', 'inbook']
+
     results = []
     for doc in matched_docs:
         match_abstract = doc.get('abstract', '')
         match_title = ' '.join(doc.get('title', []))
         match_author = doc.get('author_norm', [])
+        match_year = doc.get('year', None)
+        match_doctype = doc.get('doctype', None)
 
-        scores = []
-        if abstract.lower() != 'not available':
-            scores.append(fuzz.token_set_ratio(abstract, match_abstract)/100.0)
-        scores.append(fuzz.partial_ratio(title, match_title)/100.0)
-        scores.append(get_author_score(author, match_author))
+        if (match_doctype == 'eprint' and doctype in doctype_matching_eprint) or ((match_doctype in doctype_matching_eprint and doctype == 'eprint')):
+            scores = []
+            if abstract.lower() != 'not available':
+                scores.append(fuzz.token_set_ratio(abstract, match_abstract)/100.0)
+            scores.append(fuzz.partial_ratio(title, match_title)/100.0)
+            scores.append(get_author_score(author, match_author))
+            scores.append(1 if year and abs(int(match_year)-int(year)) <= 1 else 0)
 
-        if all(score >= 0.7 for score in scores):
-            if len(scores) == 3:
-                results.append({'bibcode': doc.get('bibcode', ''),
-                                'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2]}})
-            elif len(scores) == 2:
-                results.append({'bibcode': doc.get('bibcode', ''),
-                                'scores': {'title': scores[0], 'author': scores[1]}})
+            if passing_score(scores):
+                if len(scores) == 4:
+                    results.append({'bibcode': doc.get('bibcode', ''),
+                                    'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2], 'year': scores[3]}})
+                elif len(scores) == 3:
+                    results.append({'bibcode': doc.get('bibcode', ''),
+                                    'scores': {'title': scores[0], 'author': scores[1], 'year': scores[2]}})
 
     return results
 
@@ -187,14 +204,49 @@ def clean_data(input):
         current_app.logger.error('Illegal unicode character in found %s' %input)
         input = remove_control_chars(input).strip()
 
-    input = input.split('\n')
+    input = input.replace(' \n', '\n').split('\n')
 
     # this is for abstract
     # if paragraphs so we need to make sure that we keep this information.
-    output = ''.join([l.strip() and l.strip() + ' ' or '<P />' for l in input])
-    output = output.strip().replace(' \n', '\n').decode('utf_8')
+    output = ''.join([' '.join(l.strip().split()) and ' '.join(l.strip().split()) + ' ' or '<P />' for l in input])
+    output = output.strip().replace('"', '').replace('$', '').decode('utf_8')
 
     return output
+
+def sub_entity(mat):
+    """
+
+    :param mat:
+    :return:
+    """
+    unicode_dict = current_app.config['ORACLE_SERVICE_UNICODE_CONVERSION']
+
+    key = mat.group(1)
+    if unicode_dict.get(key, None) is not None:
+        result = eval("u'\\u%04x'" % unicode_dict[key])
+        return result
+    return None
+
+
+RE_ENTITY = re.compile('&([^#][^; ]+?);')
+def to_unicode(input):
+    """
+
+    :param input:
+    :return:
+    """
+    retstr = RE_ENTITY.sub(sub_entity, input)
+    return retstr
+
+
+CONTROL_CHAR_RE = re.compile('[%s]' % re.escape(''.join(map(unichr, range(0,32) + range(127,160)))))
+def remove_control_chars(input):
+    """
+
+    :param input:
+    :return:
+    """
+    return CONTROL_CHAR_RE.sub('', input)
 
 def encode_author(author):
     """
@@ -204,6 +256,16 @@ def encode_author(author):
     """
     author = lxml.html.fromstring(author).text
     if isinstance(author, unicode):
-        return unidecode.unidecode(author)
+        return unidecode.unidecode(remove_control_chars(to_unicode(author)))
     return author
 
+RE_INITIAL = re.compile('\. *(?!,)')
+def format_author(author):
+    """
+
+    :param author:
+    :return:
+    """
+    author = RE_INITIAL.sub('. ', author)
+    # Strip potentially disastrous semicolons.
+    return author.strip().strip(';')
