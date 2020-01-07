@@ -66,11 +66,13 @@ def get_solr_data_match(abstract, title):
     # if there is an abstract, query solr on that, otherwise query on title
     # note that it seems when abstract is available combining querying abstract and title does not work
     if abstract.lower() != 'not available':
+        # there is a limit on number of characters that can be send
+        abstract = abstract[:2500]
         query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 1, 1))'.format(rows=rows,
-                          abstract=abstract, number_matched_terms_abstract=int(abstract.count(' ') * 0.3))
+                          abstract=abstract, number_matched_terms_abstract=max(1, int(abstract.count(' ') * 0.3)))
     else:
         query = 'topn({rows}, similar("{title}", input title, {number_matched_terms_title}, 1, 1))'.format(rows=rows,
-                          title=title, number_matched_terms_title=int(title.count(' ') * 0.75))
+                          title=title, number_matched_terms_title=max(1, int(title.count(' ') * 0.75)))
 
     try:
         result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype')
