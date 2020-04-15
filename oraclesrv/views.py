@@ -22,16 +22,16 @@ def return_response(results, status_code):
     r.headers['content-type'] = 'application/json'
     return r
 
-def get_user_info_from_adsws(session):
+def get_user_info_from_adsws(endpoint):
     """
 
-    :param session:
+    :param endpoint:
     :return:
     """
-    if session:
+    if endpoint:
         try:
-            current_app.logger.info('getting user info from adsws for %s' % (session))
-            url = current_app.config['ORACLE_SERVICE_ACCOUNT_INFO_URL'] + '/' + session
+            current_app.logger.info('getting user info from adsws for %s' % (endpoint))
+            url = current_app.config['ORACLE_SERVICE_ACCOUNT_INFO_URL'] + '/' + endpoint
             headers = {'Authorization': 'Bearer ' + current_app.config['ORACLE_SERVICE_ADSWS_API_TOKEN']}
             r = current_app.client.get(url=url, headers=headers)
             if r.status_code == 200:
@@ -41,6 +41,32 @@ def get_user_info_from_adsws(session):
         except Exception as e:
             current_app.logger.error('adsws exception: %s'%e)
             raise
+    return None
+
+def get_the_reader(session, user_token, user_id):
+    """
+    if reader is not provided, per Roman, try to get it in the order Authorization > X-Adsws-Uid > session
+
+    :param session: 
+    :param user_token: 
+    :param user_id: 
+    :return: 
+    """
+    if user_token:
+        account = get_user_info_from_adsws(user_token)
+        if account:
+            client_id = account['hashed_client_id']
+            return client_id[:16]
+    if user_id:
+        account = get_user_info_from_adsws(user_token)
+        if account:
+            client_id = account['hashed_client_id']
+            return client_id[:16]
+    if session:
+        account = get_user_info_from_adsws(session)
+        if account:
+            client_id = account['hashed_client_id']
+            return client_id[:16]
     return None
 
 def get_requests_params(payload, param, default_value):
@@ -68,25 +94,14 @@ def verify_the_function(the_function):
         return the_function
     return 'similar'
 
-def read_history(session, payload, function, reader):
+def read_history(payload, function, reader):
     """
 
-    :param session:
     :param payload:
     :param function:
     :param reader:
     :return:
     """
-    # if no reader, see if there is a session and reader can be extracted accordingly
-    if reader is None:
-        if not session:
-            return return_response(results={'error': 'neither reader found in payload (parameter name is `reader`) nor session information received'}, status_code=400)
-        account = get_user_info_from_adsws(session)
-        if not account:
-            return return_response(results={'error': 'unable to obtain reader id'}, status_code=400)
-        client_id = account['hashed_client_id']
-        reader = client_id[:16]
-
     # read any optional params
     sort = get_requests_params(payload, 'sort', 'entry_date')
     num_docs = get_requests_params(payload, 'num_docs', 5)
@@ -120,8 +135,17 @@ def read_history_get(function, reader):
         the_function = verify_the_function(get_requests_params(payload, 'function', None))
     if the_reader is None:
         the_reader = get_requests_params(payload, 'reader', None)
+        if the_reader is None:
+            session = request.cookies.get('session', None)
+            user_token = request.headers.get('Authorization', '')[7:].strip()
+            user_id = request.headers.get('X-Adsws-Uid', None)
+            if session is None and user_token is None and user_id is None:
+                return return_response(results={'error': 'neither reader found in payload (parameter name is `reader`) nor header and session information received'}, status_code=400)
+            the_reader = get_the_reader(session, user_token, user_id)
+    if the_reader is None:
+        return return_response(results={'error': 'unable to obtain reader id'}, status_code=400)
 
-    return read_history(request.cookies.get('session', None), payload, the_function, the_reader)
+    return read_history(payload, the_function, the_reader)
 
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
 @bp.route('/readhist', methods=['POST'])
@@ -143,8 +167,17 @@ def read_history_post():
 
     the_function = verify_the_function(get_requests_params(payload, 'function', None))
     the_reader = get_requests_params(payload, 'reader', None)
+    if the_reader is None:
+        session = request.cookies.get('session', None)
+        user_token = request.headers.get('Authorization', None)
+        user_id = request.headers.get('X-Adsws-Uid', None)
+        if session is None and user_token is None and user_id is None:
+            return return_response(results={'error': 'neither reader found in payload (parameter name is `reader`) nor header and session information received'}, status_code=400)
+        the_reader = get_the_reader(session, user_token, user_id)
+    if the_reader is None:
+        return return_response(results={'error': 'unable to obtain reader id'}, status_code=400)
 
-    return read_history(request.cookies.get('session', None), payload, the_function, the_reader)
+    return read_history(payload, the_function, the_reader)
 
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
 @bp.route('/matchdoc', methods=['POST'])
