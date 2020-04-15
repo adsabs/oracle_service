@@ -22,17 +22,17 @@ def return_response(results, status_code):
     r.headers['content-type'] = 'application/json'
     return r
 
-def get_user_info_from_adsws_having_token(session, token):
+def get_user_info_from_adsws(endpoint):
     """
 
-    :param session:
+    :param endpoint:
     :return:
     """
-    if session and token:
+    if endpoint:
         try:
-            current_app.logger.info('getting user info from adsws for %s' % (session))
-            url = current_app.config['ORACLE_SERVICE_ACCOUNT_INFO_URL'] + '/' + session
-            headers = {'Authorization': 'Bearer ' + token}
+            current_app.logger.info('getting user info from adsws for %s' % (endpoint))
+            url = current_app.config['ORACLE_SERVICE_ACCOUNT_INFO_URL'] + '/' + endpoint
+            headers = {'Authorization': 'Bearer ' + current_app.config['ORACLE_SERVICE_ADSWS_API_TOKEN']}
             r = current_app.client.get(url=url, headers=headers)
             if r.status_code == 200:
                 current_app.logger.info('got results from adsws=%s' % (r.json()))
@@ -43,14 +43,6 @@ def get_user_info_from_adsws_having_token(session, token):
             raise
     return None
 
-def get_user_info_from_adsws(session):
-    """
-
-    :param session:
-    :return:
-    """
-    return get_user_info_from_adsws_having_token(session, current_app.config['ORACLE_SERVICE_ADSWS_API_TOKEN'])
-
 def get_the_reader(session, user_token, user_id):
     """
     if reader is not provided, per Roman, try to get it in the order Authorization > X-Adsws-Uid > session
@@ -60,16 +52,21 @@ def get_the_reader(session, user_token, user_id):
     :param user_id: 
     :return: 
     """
-    account = get_user_info_from_adsws_having_token(session, user_token)
-    if account:
-        client_id = account['hashed_client_id']
-        return client_id[:16]
+    if user_token:
+        account = get_user_info_from_adsws(user_token)
+        if account:
+            client_id = account['hashed_client_id']
+            return client_id[:16]
     if user_id:
-        return user_id
-    account = get_user_info_from_adsws(session)
-    if account:
-        client_id = account['hashed_client_id']
-        return client_id[:16]
+        account = get_user_info_from_adsws(user_token)
+        if account:
+            client_id = account['hashed_client_id']
+            return client_id[:16]
+    if session:
+        account = get_user_info_from_adsws(session)
+        if account:
+            client_id = account['hashed_client_id']
+            return client_id[:16]
     return None
 
 def get_requests_params(payload, param, default_value):
@@ -140,7 +137,7 @@ def read_history_get(function, reader):
         the_reader = get_requests_params(payload, 'reader', None)
         if the_reader is None:
             session = request.cookies.get('session', None)
-            user_token = request.headers.get('Authorization', None)
+            user_token = request.headers.get('Authorization', '')[7:].strip()
             user_id = request.headers.get('X-Adsws-Uid', None)
             if session is None and user_token is None and user_id is None:
                 return return_response(results={'error': 'neither reader found in payload (parameter name is `reader`) nor header and session information received'}, status_code=400)
