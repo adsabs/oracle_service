@@ -22,17 +22,17 @@ def return_response(results, status_code):
     r.headers['content-type'] = 'application/json'
     return r
 
-def get_user_info_from_adsws_having_token(session, user_token):
+def get_user_info_from_adsws_having_token(session, token):
     """
 
     :param session:
     :return:
     """
-    if session and user_token:
+    if session and token:
         try:
             current_app.logger.info('getting user info from adsws for %s' % (session))
             url = current_app.config['ORACLE_SERVICE_ACCOUNT_INFO_URL'] + '/' + session
-            headers = {'Authorization': 'Bearer ' + user_token}
+            headers = {'Authorization': 'Bearer ' + token}
             r = current_app.client.get(url=url, headers=headers)
             if r.status_code == 200:
                 current_app.logger.info('got results from adsws=%s' % (r.json()))
