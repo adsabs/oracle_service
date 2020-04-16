@@ -88,8 +88,7 @@ class test_oracle(TestCase):
         Test readhist endpoint when neither reader nor session were passed in
         """
         r= self.client.post(path='/readhist', data=json.dumps({'missingReader':''}))
-        self.assertEqual(json.loads(r.data)['error'],
-                         "neither reader found in payload (parameter name is `reader`) nor header and session information received")
+        self.assertEqual(json.loads(r.data)['error'], "unable to obtain reader id")
 
     def test_readhist_endpoint_no_data(self):
         """
