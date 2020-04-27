@@ -59,7 +59,8 @@ def get_requests_params(payload, param, default_value):
 
 def get_the_reader(request, payload):
     """
-    if reader is not provided, per Roman, try to get it in the order: reader > Authorization > X-Adsws-Uid > session
+    for getting the reader, first see if user has provided as part of payload,
+    if not, per Roman, try to get it in the order: Authorization > session for adsws
 
     :param request:
     :param payload:
@@ -72,12 +73,6 @@ def get_the_reader(request, payload):
 
     user_token = request.headers.get('Authorization', '')[7:].strip()
     if user_token:
-        account = get_user_info_from_adsws(user_token)
-        if account:
-            return account['hashed_client_id'][:16]
-
-    user_id = request.headers.get('X-Adsws-Uid', None)
-    if user_id:
         account = get_user_info_from_adsws(user_token)
         if account:
             return account['hashed_client_id'][:16]
