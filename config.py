@@ -802,3 +802,11 @@ ORACLE_SERVICE_UNICODE_CONVERSION = {
     '10886': 'gap',
     '10889': 'lap',
 }
+
+ORACLE_SERVICE_MATCH_DOCTYPE = {
+    'eprint': ['article', 'inproceedings', 'inbook'],
+    'article': ['eprint'],
+    'inproceedings': ['eprint'],
+    'inbook': ['eprint'],
+    'thesis': ['phdthesis', 'mastersthesis']
+}
