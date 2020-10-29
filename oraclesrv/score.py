@@ -1,5 +1,4 @@
 import sys
-import editdistance
 import re
 
 from fuzzywuzzy import fuzz
@@ -8,21 +7,9 @@ import unidecode
 
 from flask import current_app
 
+re_match_collaboration = re.compile(r'([Cc]ollaboration[s\s]*)')
 def count_matching_authors(ref_authors, ads_authors):
     """
-    returns statistics on the authors matching between ref_authors
-    and ads_authors.
-
-    ads_authors is supposed to a list of ADS-normalized author strings.
-    ref_authors must be a string, where we try to assume as little as
-    possible about the format.  Full first names will kill this function,
-    though.
-
-    What's returned is a tuple of (missing_in_ref,
-        missing_in_ads, matching_authors, first_author_missing).
-
-    No initials verification takes place here, case is folded, everything
-    is supposed to have been dumbed down to ASCII by ADS conventions.
 
     :param ref_authors:
     :param ads_authors:
@@ -31,57 +18,26 @@ def count_matching_authors(ref_authors, ads_authors):
     missing_in_ref, missing_in_ads, matching_authors, first_author_missing = 0, 0, 0, False
 
     try:
-        ads_authors_lastname = [a.split(",")[0].strip() for a in ads_authors]
-        # if the ref_authors are lastname, firstname;...
-        if ';' in ref_authors:
-            ref_authors_lastname = [a.split(',')[0].strip() for a in ref_authors.split(";")]
-        # else if there is only one author
-        elif ref_authors.count(",") == 1:
-            ref_authors_lastname = [ref_authors.split(',')[0].strip()]
-        # finally if ref_authors are firstname lastname,...
-        else:
-            ref_authors_lastname = [a.split()[-1].strip() for a in ref_authors.split(",")]
+        ref_authors = ref_authors.split(';')
+        ref_authors_lastname = [a.split(",")[0].strip() for a in ref_authors]
+        ref_authors_firstinitial = [a.split(",")[1].strip()[0] for a in ref_authors]
+        ref_authors_norm = [last+', '+ first for last,first in zip(ref_authors_lastname,ref_authors_firstinitial)]
 
-        ads_first_author = ads_authors_lastname[0]
-        first_author_missing = ads_first_author not in ref_authors
-
-        different = []
-        for ads_auth in ads_authors_lastname:
-            if ads_auth in ref_authors or (
-                            " " in ads_auth and ads_auth.split()[-1] in ref_authors):
+        for author in ads_authors:
+            if author in ref_authors_norm:
                 matching_authors += 1
             else:
-                # see if there is actually no match (check for misspelling here)
-                # difference of <30% is indication of misspelling
-                misspelled = False
-                for ref_auth in ref_authors_lastname:
-                    N_max = max(len(ads_auth), len(ref_auth))
-                    distance = (N_max - float(editdistance.eval(ads_auth, ref_auth))) / N_max
-                    if distance > 0.7:
-                        different.append(ref_auth)
-                        misspelled = True
-                        break
-                if not misspelled:
-                    missing_in_ref += 1
+                missing_in_ref += 1
 
-        # Now try to figure out if the reference has additional authors
-        # (we assume ADS author lists are complete)
-        ads_authors_lastname_pattern = "|".join(ads_authors_lastname)
+        for author in ref_authors_norm:
+            if author not in ads_authors:
+                missing_in_ads += 1
 
-        # just to be on the safe side, nuke some RE characters that sometimes
-        # sneak into ADS author lists (really, the respective records should
-        # be fixed)
-        ads_authors_lastname_pattern = re.sub("[()]", "", ads_authors_lastname_pattern)
-
-        wordsNotInADS = re.findall(r"\w+", re.sub(ads_authors_lastname_pattern, "", '; '.join(ref_authors_lastname)))
-        # remove recognized misspelled authors
-        wordsNotInADS = [word for word in wordsNotInADS if word not in different]
-        missing_in_ads = len(wordsNotInADS)
+        first_author_missing = ads_authors[0] not in ref_authors_norm
     except:
         pass
 
     return (missing_in_ref, missing_in_ads, matching_authors, first_author_missing)
-
 
 def get_author_score(ref_authors, ads_authors):
     """
@@ -93,7 +49,12 @@ def get_author_score(ref_authors, ads_authors):
     # note that ref_authors is a string, and we need to have at least one name to match it to
     # ads_authors with is a list, that should contain at least one name
     if len(ref_authors) == 0 or len(ads_authors) == 0:
-        return
+        return 0
+
+    # if there is collabration, consider the that only and return score for the first author only
+    if re_match_collaboration.findall(ref_authors) and re_match_collaboration.findall(';'.join(ads_authors)):
+        return 0.3
+
     (missing_in_ref, missing_in_ads, matching_authors, first_author_missing
      ) = count_matching_authors(ref_authors, ads_authors)
 
@@ -103,51 +64,118 @@ def get_author_score(ref_authors, ads_authors):
 
     score = (matching_authors - abs(missing_in_ref - missing_in_ads)) / float(len(ads_authors))
 
-    return max(0, min(1, score))
+    return round(max(0, min(1, score)),2)
 
-def passing_score(scores):
+def get_year_score(diff):
     """
 
-    :param scores:
+    :param diff:
     :return:
     """
-    return sum([1 for score in scores if score >= 0.8]) >= len(scores) - 1
+    if diff <= 1:
+        return 1
+    if diff <= 2:
+        return 0.75
+    if diff <= 3:
+        return 0.5
+    if diff <= 4:
+        return 0.25
+    return 0
 
-def score_match(abstract, title, author, year, doctype, matched_docs):
+def get_confidence_score(scores):
+    """
+
+    :param scores: list of scores for [abstract, title, author, year]
+    :return:
+    """
+    confidence = sum([1 for score in scores if score >= 0.8]) >= len(scores) - 1 or \
+                 sum(scores[0:2]) >= 1.8
+    if confidence:
+        return 1
+
+    confidence = sum(scores[0:2]) >= 1.5  and sum(scores[2:4]) >= 1   or \
+                 sum(scores[0:2]) >= 1.35 and sum(scores[2:4]) == 1.5 or \
+                 sum(scores[0:2]) >= 1.25 and sum(scores[2:4]) == 1.75
+    if confidence:
+        return 0.67
+
+    confidence = (sum(scores[0:2]) >= 1.25 and sum(scores[2:4]) >= 1.5) or \
+                 (sum(scores[0:2]) >= 1    and sum(scores[2:4]) >= 1.75)
+    if confidence:
+        return 0.5
+
+    confidence = sum(scores[0:2]) >= 1 and sum(scores[2:4]) >= 1 and scores[2] != 0
+    if confidence:
+        return 0.33
+
+    return 0
+
+re_match_arXiv = re.compile(r'(\d\d\d\darXiv.*)')
+def score_match(abstract, title, author, year, matched_docs):
     """
 
     :param abstract:
     :param title:
     :param author:
-    :param matched_doc:
+    :param year:
+    :param matched_docs:
     :return:
     """
-    doctype_matching_eprint = ['article', 'inproceedings', 'inbook']
-
     results = []
     for doc in matched_docs:
+        match_bibcode = doc.get('bibcode', '')
         match_abstract = doc.get('abstract', '')
-        match_title = ' '.join(doc.get('title', []))
+        match_title = strip_latex_html(' '.join(doc.get('title', [])))
         match_author = doc.get('author_norm', [])
         match_year = doc.get('year', None)
-        match_doctype = doc.get('doctype', None)
 
-        if (match_doctype == 'eprint' and doctype in doctype_matching_eprint) or ((match_doctype in doctype_matching_eprint and doctype == 'eprint')):
-            scores = []
-            if abstract.lower() != 'not available':
-                scores.append(fuzz.token_set_ratio(abstract, match_abstract)/100.0)
-            scores.append(fuzz.partial_ratio(title, match_title)/100.0)
-            scores.append(get_author_score(author, match_author))
-            scores.append(1 if year and abs(int(match_year)-int(year)) <= 1 else 0)
+        scores = []
+        if abstract.lower() != 'not available':
+            scores.append(fuzz.token_set_ratio(abstract, match_abstract)/100.0)
+        scores.append(fuzz.partial_ratio(title, match_title)/100.0)
+        scores.append(get_author_score(author, match_author))
+        scores.append(get_year_score(abs(int(match_year)-int(year))))
 
-            if passing_score(scores):
-                if len(scores) == 4:
-                    results.append({'bibcode': doc.get('bibcode', ''),
-                                    'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2], 'year': scores[3]}})
-                elif len(scores) == 3:
-                    results.append({'bibcode': doc.get('bibcode', ''),
-                                    'scores': {'title': scores[0], 'author': scores[1], 'year': scores[2]}})
+        confidence = get_confidence_score(scores)
+        if confidence > 0:
+            result = {'bibcode': match_bibcode, 'confidence': confidence,
+                      'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2], 'year': scores[3]}}
+            results.append(result)
 
+    # if multiple records are returned, push the one with highest score up
+    return sorted(results,
+                  key=lambda x: (x['confidence'],
+                                 x['scores'].get('abstract') + x['scores'].get('title') + x['scores'].get('author'),
+                                 x['scores'].get('year')), reverse=True)
+
+def score_match_doi(doi, abstract, title, author, year, matched_docs):
+    """
+
+    :param doi:
+    :param abstract:
+    :param title:
+    :param author:
+    :param year:
+    :param matched_docs:
+    :return:
+    """
+    results = score_match(abstract, title, author, year, matched_docs)
+    try:
+        matched_doi = matched_docs[0].get('doi', [])[0]
+        if matched_doi == doi:
+            confidence = results[0].get('confidence', None)
+            abstract_score = results[0].get('scores', {}).get('abstract', 0)
+            # possibly the doi is wrong, so try similar query
+            if confidence != 1 or abstract_score == 0:
+                return []
+            confidence = round((confidence + 1.0)/2, 2)
+            confidence = int(confidence) if float(confidence).is_integer() else confidence
+            results[0].update({'confidence': confidence})
+            results[0].get('scores', {}).update({'doi':1.0})
+            return results
+        results[0].get('scores', {}).update({'doi': 0.0})
+    except:
+        pass
     return results
 
 def get_illegal_char_regex():
@@ -192,6 +220,20 @@ def remove_control_chars(input, strict=False):
     input = re.sub(r"[\x01-\x08\x0B-\x1F\x7F]", "", input)
     return input
 
+re_latex_math = re.compile(r'(\$[^$]*\$)')
+re_html_entity = re.compile(r'(<SUB>.*</SUB|<SUP>.*</SUP>)', re.IGNORECASE)
+re_escape = re.compile(r'(\\\s*\w+|\\\s*\W+)\b')
+def strip_latex_html(input):
+    """
+
+    :param input:
+    :return:
+    """
+    output = re_latex_math.sub('', input)
+    output = re_html_entity.sub('', output)
+    output = re_escape.sub('', output)
+    return output
+
 def clean_data(input):
     """
 
@@ -204,24 +246,23 @@ def clean_data(input):
         current_app.logger.error('Illegal unicode character in found %s' %input)
         input = remove_control_chars(input).strip()
 
-    input = input.replace(' \n', '\n').split('\n')
+    output = input.replace(' \n', '').replace('\n', '')
+    output = output.strip().replace('"', '').decode('utf_8')
 
-    # this is for abstract
-    # if paragraphs so we need to make sure that we keep this information.
-    output = ''.join([' '.join(l.strip().split()) and ' '.join(l.strip().split()) + ' ' or '<P />' for l in input])
-    output = output.strip().replace('"', '').replace('$', '').decode('utf_8')
+    # remove any latex or html tags
+    output = strip_latex_html(output)
 
     return output
 
-def sub_entity(mat):
+def sub_entity(match):
     """
 
-    :param mat:
+    :param match:
     :return:
     """
     unicode_dict = current_app.config['ORACLE_SERVICE_UNICODE_CONVERSION']
 
-    key = mat.group(1)
+    key = match.group(1)
     if unicode_dict.get(key, None) is not None:
         result = eval("u'\\u%04x'" % unicode_dict[key])
         return result
@@ -240,7 +281,7 @@ def to_unicode(input):
 
 
 CONTROL_CHAR_RE = re.compile('[%s]' % re.escape(''.join(map(unichr, range(0,32) + range(127,160)))))
-def remove_control_chars(input):
+def remove_control_chars_author(input):
     """
 
     :param input:
@@ -256,7 +297,7 @@ def encode_author(author):
     """
     author = lxml.html.fromstring(author).text
     if isinstance(author, unicode):
-        return unidecode.unidecode(remove_control_chars(to_unicode(author)))
+        return unidecode.unidecode(remove_control_chars_author(to_unicode(author)))
     return author
 
 RE_INITIAL = re.compile('\. *(?!,)')
