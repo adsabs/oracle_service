@@ -250,6 +250,7 @@ def matchdoc():
 
     abstract = clean_data(abstract)
     title = clean_data(title)
+    extra_filter = 'property:REFEREED' if 'eprint' not in match_doctype else ''
     match_doctype = ' OR '.join(match_doctype)
 
     # if doi is available try query on doi first
@@ -273,7 +274,7 @@ def matchdoc():
                                                abstract=abstract[:100]+'...', title=title, author=author, year=year, doctype=doctype))
 
     # query solr using similar with abstract
-    results, query, solr_status_code = get_solr_data_match(abstract, title, match_doctype)
+    results, query, solr_status_code = get_solr_data_match(abstract, title, match_doctype, extra_filter)
 
     # if solr was not able to find any matches with abstract, attempt it again with title
     if solr_status_code == 200:
@@ -281,7 +282,7 @@ def matchdoc():
         if len(results) == 0:
             current_app.logger.debug('No result from solr with Abstract, trying Title.')
             comment += ' No result from solr with Abstract, trying Title.'
-            results, query, solr_status_code = get_solr_data_match('', title, match_doctype)
+            results, query, solr_status_code = get_solr_data_match('', title, match_doctype, extra_filter)
         # got records from solr, see if we can get a match
         else:
             match = score_match(abstract, title, author, year, results)
@@ -295,7 +296,7 @@ def matchdoc():
             # so drastically between the arXiv version and the publisher version
             current_app.logger.debug('No matches with Abstract, trying Title.')
             comment += ' No matches with Abstract, trying Title.'
-            results, query, solr_status_code = get_solr_data_match('', title, match_doctype)
+            results, query, solr_status_code = get_solr_data_match('', title, match_doctype, extra_filter)
 
     # no result from title either
     if len(results) == 0 and solr_status_code == 200:

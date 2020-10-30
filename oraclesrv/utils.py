@@ -59,12 +59,13 @@ def get_solr_data_recommend(function, reader, rows=5, sort='entry_date', cutoff_
 
 re_hyphenated_word = re.compile(r'\w+\-\w+\s*')
 re_punctuation = re.compile(r'[^\w\s]')
-def get_solr_data_match(abstract, title, doctype):
+def get_solr_data_match(abstract, title, doctype, extra_filter):
     """
 
     :param abstract:
     :param title:
     :param doctype:
+    :param extra_filter:
     :return:
     """
     rows = 10
@@ -72,12 +73,12 @@ def get_solr_data_match(abstract, title, doctype):
     if len(abstract) > 0  and not abstract.lower().startswith('not available'):
         # there is a limit on number of characters that can be send
         abstract = abstract[:2500]
-        query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 1, 1)) doctype:({doctype}) property:REFEREED'.format(rows=rows,
-                          abstract=abstract, number_matched_terms_abstract=max(1, int(abstract.count(' ') * 0.3)), doctype=doctype)
+        query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 1, 1)) doctype:({doctype}) {extra_filter}'.format(rows=rows,
+                          abstract=abstract, number_matched_terms_abstract=max(1, int(abstract.count(' ') * 0.3)), doctype=doctype, extra_filter=extra_filter)
     elif len(title) > 0:
         title = re_punctuation.sub('', re_hyphenated_word.sub('', title)).strip()
-        query = 'topn({rows}, similar("{title}", input title, {number_matched_terms_title}, 1, 1)) doctype:({doctype}) property:REFEREED'.format(rows=rows,
-                          title=title, number_matched_terms_title=max(1, int(title.count(' ') * 0.9)), doctype=doctype)
+        query = 'topn({rows}, similar("{title}", input title, {number_matched_terms_title}, 1, 1)) doctype:({doctype}) {extra_filter}'.format(rows=rows,
+                          title=title, number_matched_terms_title=max(1, int(title.count(' ') * 0.9)), doctype=doctype, extra_filter=extra_filter)
     else:
         return [], '', 200
 
