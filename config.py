@@ -1,4 +1,7 @@
 
+API_TIMEOUT = 60
+REQUESTS_CONNECTION_POOL_ENABLED = True
+
 # configuration for accessing solr db
 # these values can be overwritten by local_config values
 ORACLE_SERVICE_SOLRQUERY_URL = "https://dev.adsabs.harvard.edu/v1/search/query"

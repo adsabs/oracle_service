@@ -3,6 +3,7 @@ import re
 
 from flask import current_app
 import requests
+import flask
 
 from oraclesrv.client import client
 
@@ -14,13 +15,32 @@ def get_solr_data(rows, query, fl):
     :return:
     """
     result = []
-    response = client().get(
-        url=current_app.config['ORACLE_SERVICE_SOLRQUERY_URL'],
-        headers={'Authorization': 'Bearer ' + current_app.config['ORACLE_SERVICE_ADSWS_API_TOKEN']},
-        params={'fl': fl, 'rows': rows, 'q': query},
-        timeout=60
-    )
 
+    if current_app.config['REQUESTS_CONNECTION_POOL_ENABLED']:
+        response = current_app.client.get(
+            url=current_app.config['ORACLE_SERVICE_SOLRQUERY_URL'],
+            headers={'Authorization': 'Bearer ' + current_app.config['ORACLE_SERVICE_ADSWS_API_TOKEN']},
+            params={'fl': fl, 'rows': rows, 'q': query},
+            timeout=current_app.config.get('API_TIMEOUT', 60)
+        )
+    else:
+        new_headers = {}
+        if flask.has_request_context():
+            # Propagate key information from the original request
+            new_headers[u'X-Original-Uri'] = flask.request.headers.get(u'X-Original-Uri', u'-')
+            new_headers[u'X-Original-Forwarded-For'] = flask.request.headers.get(u'X-Original-Forwarded-For', u'-')
+            new_headers[u'X-Forwarded-For'] = flask.request.headers.get(u'X-Forwarded-For', u'-')
+            new_headers[u'X-Amzn-Trace-Id'] = flask.request.headers.get(u'X-Amzn-Trace-Id', '-')
+        new_headers[u'Authorization'] = 'Bearer ' + current_app.config['ORACLE_SERVICE_ADSWS_API_TOKEN'] 
+        response = requests.get(
+            url=current_app.config['ORACLE_SERVICE_SOLRQUERY_URL'],
+            headers=new_headers,
+            params={'fl': fl, 'rows': rows, 'q': query},
+            timeout=current_app.config.get('API_TIMEOUT', 60)
+        )
+
+
+    
     response.raise_for_status()
 
     from_solr = response.json()
