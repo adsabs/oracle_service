@@ -254,7 +254,7 @@ def matchdoc():
     # if doi is available try query on doi first
     if doi:
         current_app.logger.debug('with parameter: doi={doi}'.format(doi=doi))
-        results, query, solr_status_code = get_solr_data_match_doi(doi, doctype)
+        results, query, solr_status_code = get_solr_data_match_doi(doi, match_doctype)
         # if any records from solr
         # compute the score, if score is 0 doi was wrong, so continue on to query using similar
         if isinstance(results, list) and len(results) > 0:
