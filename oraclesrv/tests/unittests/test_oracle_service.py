@@ -23,7 +23,12 @@ class test_oracle(TestCase):
         Tests POST for readhist endpoint when no optional param passed in, so default is returned
         """
         # the mock is for solr call
-        with mock.patch.object(self.current_app.client, 'get'):
+        with mock.patch.object(self.current_app.client, 'get') as get_mock:
+            get_mock.return_value = mock_response = mock.Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {u'responseHeader': {u'status': 0, u'QTime': 60, u'params': {}},
+                                               u'response': {u'start': 0, u'numFound': 0, u'docs': []}
+            }
             r= self.client.post(path='/readhist', data='{"function":"trending", "reader":"0000000000000000"}')
             self.assertEqual(json.loads(r.data)['query'],
                              "(trending(topn(10, reader:0000000000000000, entry_date desc)) entdate:[NOW-5DAYS TO *])")
@@ -33,7 +38,12 @@ class test_oracle(TestCase):
         Tests GET endpoint for readhist endpoint with default params
         """
         # the mock is for solr call
-        with mock.patch.object(self.current_app.client, 'get'):
+        with mock.patch.object(self.current_app.client, 'get') as get_mock:
+            get_mock.return_value = mock_response = mock.Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {u'responseHeader': {u'status': 0, u'QTime': 60, u'params': {}},
+                                               u'response': {u'start': 0, u'numFound': 0, u'docs': []}
+            }
             r= self.client.get(path='/readhist/similar/0000000000000000')
             self.assertEqual(json.loads(r.data)['query'],
                              "(similar(topn(10, reader:0000000000000000, entry_date desc)) entdate:[NOW-5DAYS TO *])")
@@ -43,7 +53,12 @@ class test_oracle(TestCase):
         Test optional params with POST for readhist endpoint
         """
         # the mock is for solr call
-        with mock.patch.object(self.current_app.client, 'get'):
+        with mock.patch.object(self.current_app.client, 'get') as get_mock:
+            get_mock.return_value = mock_response = mock.Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {u'responseHeader': {u'status': 0, u'QTime': 60, u'params': {}},
+                                               u'response': {u'start': 0, u'numFound': 0, u'docs': []}
+            }
             params = {'function': 'trending',
                       'reader': '0000000000000000',
                       'sort': 'date',
@@ -59,7 +74,12 @@ class test_oracle(TestCase):
         Test optional params with GET for readhist endpoint
         """
         # the mock is for solr call
-        with mock.patch.object(self.current_app.client, 'get'):
+        with mock.patch.object(self.current_app.client, 'get') as get_mock:
+            get_mock.return_value = mock_response = mock.Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {u'responseHeader': {u'status': 0, u'QTime': 60, u'params': {}},
+                                               u'response': {u'start': 0, u'numFound': 0, u'docs': []}
+            }
             params = {'sort': 'date',
                       'num_docs': 10,
                       'cutoff_days': 12,
@@ -337,7 +357,7 @@ class test_oracle(TestCase):
             self.assertEqual(result['query'],
                              'topn(10, similar("Entanglement, an essential feature of quantum theory that allows forinseparable quantum correlations to be shared between distant parties, is acrucial resource for quantum networks. Of particular importance is the abilityto distribute entanglement between remote objects that can also serve asquantum memories. This has been previously realized using systems such as warmand cold atomic vapours, individual atoms and ions, and defects in solid-statesystems. Practical communication applications require a combination of severaladvantageous features, such as a particular operating wavelength, highbandwidth and long memory lifetimes. Here we introduce a purely micromachinedsolid-state platform in the form of chip-based optomechanical resonators madeof nanostructured silicon beams. We create and demonstrate entanglement betweentwo micromechanical oscillators across two chips that are separated by 20centimetres. The entangled quantum state is distributed by an optical field ata designed wavelength near 1550 nanometres. Therefore, our system can bedirectly incorporated in a realistic fibre-optic quantum network operating inthe conventional optical telecommunication band. Our results are an importantstep towards the development of large-area quantum networks based on siliconphotonics.", input abstract, 49, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
-                             [{u'confidence': 1, u'bibcode': u'2018Natur.556..473R', u'scores': {u'title': 1.0, u'abstract': 0.91, u'year': 1, u'author': 0.63}}])
+                             [{u'confidence': 1, u'bibcode': u'2018Natur.556..473R', u'scores': {u'title': 1.0, u'abstract': 0.91, u'year': 1, u'author': 0.62}}])
 
     def test_matchdoc_endpoint_no_abstract(self):
         """
@@ -406,14 +426,14 @@ class test_oracle(TestCase):
                                                                         u'identifier': [u'22018arXiv180310259Z', u'2017PhDT........67Z', u'arXiv:1803.10259', u'2018arXiv180310259Z']}]
                                                              }
                                                }
-            data = {"bibcode": "2018arXiv180310259Z", 
-                    "mustmatch": False, 
-                    "title": "Density Matrix Embedding Theory and Strongly Correlated Lattice Systems", 
-                    "match_doctype": ["phdthesis", "mastersthesis"], 
-                    "abstract": "This thesis describes the development of the density matrix embedding theory (DMET) and its applications to lattice strongly correlated electron problems, including a review of DMET theory and algorithms (Ch 2), investigation of finite size scaling (Ch 3), Applications to high-temperature superconductivity (Ch 4-6), a framework for finite-temperature DMET (Ch 7).", 
-                    "author": "Zheng, Bo-Xiao", 
-                    "year": "2018", 
-                    "doctype": "eprint", 
+            data = {"bibcode": "2018arXiv180310259Z",
+                    "mustmatch": False,
+                    "title": "Density Matrix Embedding Theory and Strongly Correlated Lattice Systems",
+                    "match_doctype": ["phdthesis", "mastersthesis"],
+                    "abstract": "This thesis describes the development of the density matrix embedding theory (DMET) and its applications to lattice strongly correlated electron problems, including a review of DMET theory and algorithms (Ch 2), investigation of finite size scaling (Ch 3), Applications to high-temperature superconductivity (Ch 4-6), a framework for finite-temperature DMET (Ch 7).",
+                    "author": "Zheng, Bo-Xiao",
+                    "year": "2018",
+                    "doctype": "eprint",
                     "doi": None}
             r= self.client.post(path='/matchdoc', data=json.dumps(data))
             result = json.loads(r.data)

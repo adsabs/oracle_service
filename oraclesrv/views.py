@@ -1,6 +1,6 @@
-import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+
+# encoding=utf8
+PYTHONIOENCODING="UTF-8"
 
 from flask import current_app, request, Blueprint, Response
 from flask_discoverer import advertise

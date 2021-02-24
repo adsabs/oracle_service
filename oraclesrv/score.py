@@ -1,3 +1,9 @@
+from __future__ import division
+from builtins import chr
+from builtins import map
+from builtins import zip
+from builtins import range
+from past.utils import old_div
 import sys
 import re
 
@@ -168,7 +174,7 @@ def score_match_doi(doi, abstract, title, author, year, matched_docs):
             # possibly the doi is wrong, so try similar query
             if confidence != 1 or abstract_score == 0:
                 return []
-            confidence = round((confidence + 1.0)/2, 2)
+            confidence = round(old_div((confidence + 1.0),2), 2)
             confidence = int(confidence) if float(confidence).is_integer() else confidence
             results[0].update({'confidence': confidence})
             results[0].get('scores', {}).update({'doi':1.0})
@@ -192,7 +198,7 @@ def get_illegal_char_regex():
         (0xAFFFE, 0xAFFFF), (0xBFFFE, 0xBFFFF), (0xCFFFE, 0xCFFFF),
         (0xDFFFE, 0xDFFFF), (0xEFFFE, 0xEFFFF), (0xFFFFE, 0xFFFFF),
         (0x10FFFE, 0x10FFFF) ]
-    illegal_ranges = ["%s-%s" % (unichr(low), unichr(high))
+    illegal_ranges = ["%s-%s" % (chr(low), chr(high))
         for (low, high) in illegal_unichrs
         if low < sys.maxunicode]
     return re.compile(u'[%s]' % u''.join(illegal_ranges))
@@ -201,9 +207,9 @@ ILLEGALCHARSREGEX = get_illegal_char_regex()
 ILLEGAL_XML = u'([\u0000-\u0008\u000b-\u000c\u000e-\u001f\ufffe-\uffff])' + \
               u'|' + \
               u'([%s-%s][^%s-%s])|([^%s-%s][%s-%s])|([%s-%s]$)|(^[%s-%s])' % \
-              (unichr(0xd800), unichr(0xdbff), unichr(0xdc00), unichr(0xdfff),
-               unichr(0xd800), unichr(0xdbff), unichr(0xdc00), unichr(0xdfff),
-               unichr(0xd800), unichr(0xdbff), unichr(0xdc00), unichr(0xdfff),
+              (chr(0xd800), chr(0xdbff), chr(0xdc00), chr(0xdfff),
+               chr(0xd800), chr(0xdbff), chr(0xdc00), chr(0xdfff),
+               chr(0xd800), chr(0xdbff), chr(0xdc00), chr(0xdfff),
               )
 def remove_control_chars(input, strict=False):
     """
@@ -247,7 +253,7 @@ def clean_data(input):
         input = remove_control_chars(input).strip()
 
     output = input.replace(' \n', '').replace('\n', '')
-    output = output.strip().replace('"', '').decode('utf_8')
+    output = output.strip().replace('"', '')
 
     # remove any latex or html tags
     output = strip_latex_html(output)
@@ -280,7 +286,7 @@ def to_unicode(input):
     return retstr
 
 
-CONTROL_CHAR_RE = re.compile('[%s]' % re.escape(''.join(map(unichr, range(0,32) + range(127,160)))))
+CONTROL_CHAR_RE = re.compile('[%s]' % re.escape(''.join(map(chr, list(range(0,32)) + list(range(127,160))))))
 def remove_control_chars_author(input):
     """
 
@@ -296,7 +302,7 @@ def encode_author(author):
     :return:
     """
     author = lxml.html.fromstring(author).text
-    if isinstance(author, unicode):
+    if isinstance(author, str):
         return unidecode.unidecode(remove_control_chars_author(to_unicode(author)))
     return author
 

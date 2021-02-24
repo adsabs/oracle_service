@@ -39,8 +39,6 @@ def get_solr_data(rows, query, fl):
             timeout=current_app.config.get('API_TIMEOUT', 60)
         )
 
-
-    
     response.raise_for_status()
 
     from_solr = response.json()
