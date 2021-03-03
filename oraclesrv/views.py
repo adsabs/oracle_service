@@ -310,4 +310,4 @@ def matchdoc():
         return create_and_return_response(match, query, comment)
     except Exception as e:
         current_app.logger.error(e)
-        traceback.print_exc()
+        current_app.logger.error(traceback.print_exc())
