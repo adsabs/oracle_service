@@ -301,11 +301,14 @@ def encode_author(author):
     :param author:
     :return:
     """
-    author = lxml.html.fromstring(author).text
-    if isinstance(author, str):
-        return unidecode.unidecode(remove_control_chars_author(to_unicode(author)))
-    return author
-
+    try:
+        author = lxml.html.fromstring(author).text
+        if isinstance(author, str):
+            return unidecode.unidecode(remove_control_chars_author(to_unicode(author)))
+        return author
+    except Exception as e:
+        current_app.logger.error(e)
+        
 RE_INITIAL = re.compile('\. *(?!,)')
 def format_author(author):
     """
