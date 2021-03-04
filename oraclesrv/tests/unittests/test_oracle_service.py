@@ -273,7 +273,7 @@ class test_oracle(TestCase):
             r= self.client.post(path='/matchdoc', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
-                             'doi:10.1007/JHEP10\(2019\)244 doctype:(article OR inproceedings OR inbook) property:REFEREED')
+                             'doi:10.1007/JHEP10\\(2019\\)244 doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
                              [{'confidence': 1, 'bibcode': '2019JHEP...10..244S', 'scores': {'title': 0.99, 'abstract': 0.94, 'doi': 1.0, 'year': 1, 'author': 0.3}}])
 
