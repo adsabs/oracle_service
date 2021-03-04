@@ -4,6 +4,7 @@ from builtins import map
 from builtins import zip
 from builtins import range
 from past.utils import old_div
+
 import sys
 import re
 
@@ -275,7 +276,7 @@ def sub_entity(match):
     return None
 
 
-RE_ENTITY = re.compile('&([^#][^; ]+?);')
+RE_ENTITY = re.compile(r'&([^#][^; ]+?);')
 def to_unicode(input):
     """
 
@@ -286,7 +287,7 @@ def to_unicode(input):
     return retstr
 
 
-CONTROL_CHAR_RE = re.compile('[%s]' % re.escape(''.join(map(chr, list(range(0,32)) + list(range(127,160))))))
+CONTROL_CHAR_RE = re.compile(r'[%s]' % re.escape(''.join(map(chr, list(range(0,32)) + list(range(127,160))))))
 def remove_control_chars_author(input):
     """
 
@@ -301,16 +302,12 @@ def encode_author(author):
     :param author:
     :return:
     """
-    try:
-        author = lxml.html.fromstring(author).text
-        if isinstance(author, str):
-            author = unidecode.unidecode(remove_control_chars_author(to_unicode(author)))
-        return author
-    except Exception as e:
-        current_app.logger.error(e)
-        raise
+    author = lxml.html.fromstring(author).text
+    if isinstance(author, str):
+        return unidecode.unidecode(remove_control_chars_author(to_unicode(author)))
+    return author
 
-RE_INITIAL = re.compile('\. *(?!,)')
+RE_INITIAL = re.compile(r'\. *(?!,)')
 def format_author(author):
     """
 
