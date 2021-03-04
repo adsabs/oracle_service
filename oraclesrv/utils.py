@@ -117,7 +117,7 @@ def get_solr_data_match_doi(doi, doctype):
     :return:
     """
     try:
-        query = 'doi:{doi} doctype:({doctype}) property:REFEREED'.format(doi=doi.replace('(','\(').replace(')','\)'), doctype=doctype)
+        query = 'doi:{doi} doctype:({doctype}) property:REFEREED'.format(doi=doi.replace('(','\\(').replace(')','\\)'), doctype=doctype)
         result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,identifier')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
