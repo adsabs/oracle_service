@@ -10,7 +10,6 @@ import json
 from oraclesrv.utils import get_solr_data_recommend, get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_thesis
 from oraclesrv.score import clean_data, score_match, encode_author, format_author, score_match_doi
 
-import traceback
 
 bp = Blueprint('oracle_service', __name__)
 
@@ -223,91 +222,87 @@ def matchdoc():
         current_app.logger.error('missing required parameter(s)')
         return return_response(results={'error': 'all five parameters are required: `abstract`, `title`, `author`, `year`,  and `doctype`'}, status_code=400)
 
-    try:
-        author = format_author(encode_author(author))
-        comment = ''
+    author = format_author(encode_author(author))
+    comment = ''
 
-        # if matching doctype is specified use that, otherwise go with the default
+    # if matching doctype is specified use that, otherwise go with the default
+    if not match_doctype:
+        match_doctype = current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get(doctype, None)
         if not match_doctype:
-            match_doctype = current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get(doctype, None)
-            if not match_doctype:
-                current_app.logger.error('invalid doctype %s'%doctype)
-                return return_response(results={'error': 'invalid doctype %s'%doctype}, status_code=400)
-        else:
-            comment = 'Matching doctype `%s`.'%';'.join(match_doctype)
-            is_thesis = any(input in match_doctype for input in current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get('thesis'))
-            if is_thesis:
-                results, query, solr_status_code = get_solr_data_match_thesis(author, year, ' OR '.join(match_doctype))
-                # if any records from solr
-                if isinstance(results, list) and len(results) > 0:
-                    match = score_match(abstract, title, author, year, results)
-                    if not match:
-                        current_app.logger.debug('No result from solr for thesis.')
-                        comment = ' No result from solr for thesis.'
-                else:
-                    match = ''
-                    current_app.logger.debug('No matches for thesis.')
-                    comment = ' No matches for thesis.'
-                return create_and_return_response(match=match, query=query, comment=comment)
-
-        abstract = clean_data(abstract)
-        title = clean_data(title)
-        extra_filter = 'property:REFEREED' if 'eprint' not in match_doctype else ''
-        match_doctype = ' OR '.join(match_doctype)
-
-        # if doi is available try query on doi first
-        if doi:
-            current_app.logger.debug('with parameter: doi={doi}'.format(doi=doi))
-            results, query, solr_status_code = get_solr_data_match_doi(doi, match_doctype)
+            current_app.logger.error('invalid doctype %s'%doctype)
+            return return_response(results={'error': 'invalid doctype %s'%doctype}, status_code=400)
+    else:
+        comment = 'Matching doctype `%s`.'%';'.join(match_doctype)
+        is_thesis = any(input in match_doctype for input in current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get('thesis'))
+        if is_thesis:
+            results, query, solr_status_code = get_solr_data_match_thesis(author, year, ' OR '.join(match_doctype))
             # if any records from solr
-            # compute the score, if score is 0 doi was wrong, so continue on to query using similar
             if isinstance(results, list) and len(results) > 0:
-                match = score_match_doi(doi, abstract, title, author, year, results)
-                if match:
-                    return create_and_return_response(match, query)
-                else:
-                    current_app.logger.debug('No matches with DOI, trying Abstract.')
-                    comment = ' No matches with DOI, trying Abstract.'
-            else:
-                current_app.logger.debug('No result from solr with DOI.')
-                comment = ' No result from solr with DOI.'
-
-        current_app.logger.debug('with parameters: abstract={abstract}, title={title}, author={author}, year={year}, doctype={doctype}'.format(
-                                                   abstract=abstract[:100]+'...', title=title, author=author, year=year, doctype=doctype))
-
-        # query solr using similar with abstract
-        results, query, solr_status_code = get_solr_data_match(abstract, title, match_doctype, extra_filter)
-
-        # if solr was not able to find any matches with abstract, attempt it again with title
-        if solr_status_code == 200:
-            # no result from solr
-            if len(results) == 0:
-                current_app.logger.debug('No result from solr with Abstract, trying Title.')
-                comment += ' No result from solr with Abstract, trying Title.'
-                results, query, solr_status_code = get_solr_data_match('', title, match_doctype, extra_filter)
-            # got records from solr, see if we can get a match
-            else:
                 match = score_match(abstract, title, author, year, results)
-                if len(match) > 0:
-                    confidence = match[0].get('confidence', 0)
-                    # if we have a match, or if we dont have a match, but it is not a must, return
-                    if confidence != 0 or not mustmatch:
-                        return create_and_return_response(match, query, comment)
-                # otherwise if no match with abstract, and we think we should have this in solr
-                # and thus have a much, try with title, this is the case when abstract has changed
-                # so drastically between the arXiv version and the publisher version
-                current_app.logger.debug('No matches with Abstract, trying Title.')
-                comment += ' No matches with Abstract, trying Title.'
-                results, query, solr_status_code = get_solr_data_match('', title, match_doctype, extra_filter)
+                if not match:
+                    current_app.logger.debug('No result from solr for thesis.')
+                    comment = ' No result from solr for thesis.'
+            else:
+                match = ''
+                current_app.logger.debug('No matches for thesis.')
+                comment = ' No matches for thesis.'
+            return create_and_return_response(match=match, query=query, comment=comment)
 
-        # no result from title either
-        if len(results) == 0 and solr_status_code == 200:
-            current_app.logger.debug('No result from solr with Title.')
-            comment += ' No result from solr with Title.'
-            return create_and_return_response(match='', query=query, comment=comment)
+    abstract = clean_data(abstract)
+    title = clean_data(title)
+    extra_filter = 'property:REFEREED' if 'eprint' not in match_doctype else ''
+    match_doctype = ' OR '.join(match_doctype)
 
-        match = score_match(abstract, title, author, year, results)
-        return create_and_return_response(match, query, comment)
-    except Exception as e:
-        current_app.logger.error(e)
-        current_app.logger.error(traceback.print_exc())
+    # if doi is available try query on doi first
+    if doi:
+        current_app.logger.debug('with parameter: doi={doi}'.format(doi=doi))
+        results, query, solr_status_code = get_solr_data_match_doi(doi, match_doctype)
+        # if any records from solr
+        # compute the score, if score is 0 doi was wrong, so continue on to query using similar
+        if isinstance(results, list) and len(results) > 0:
+            match = score_match_doi(doi, abstract, title, author, year, results)
+            if match:
+                return create_and_return_response(match, query)
+            else:
+                current_app.logger.debug('No matches with DOI, trying Abstract.')
+                comment = ' No matches with DOI, trying Abstract.'
+        else:
+            current_app.logger.debug('No result from solr with DOI.')
+            comment = ' No result from solr with DOI.'
+
+    current_app.logger.debug('with parameters: abstract={abstract}, title={title}, author={author}, year={year}, doctype={doctype}'.format(
+                                               abstract=abstract[:100]+'...', title=title, author=author, year=year, doctype=doctype))
+
+    # query solr using similar with abstract
+    results, query, solr_status_code = get_solr_data_match(abstract, title, match_doctype, extra_filter)
+
+    # if solr was not able to find any matches with abstract, attempt it again with title
+    if solr_status_code == 200:
+        # no result from solr
+        if len(results) == 0:
+            current_app.logger.debug('No result from solr with Abstract, trying Title.')
+            comment += ' No result from solr with Abstract, trying Title.'
+            results, query, solr_status_code = get_solr_data_match('', title, match_doctype, extra_filter)
+        # got records from solr, see if we can get a match
+        else:
+            match = score_match(abstract, title, author, year, results)
+            if len(match) > 0:
+                confidence = match[0].get('confidence', 0)
+                # if we have a match, or if we dont have a match, but it is not a must, return
+                if confidence != 0 or not mustmatch:
+                    return create_and_return_response(match, query, comment)
+            # otherwise if no match with abstract, and we think we should have this in solr
+            # and thus have a much, try with title, this is the case when abstract has changed
+            # so drastically between the arXiv version and the publisher version
+            current_app.logger.debug('No matches with Abstract, trying Title.')
+            comment += ' No matches with Abstract, trying Title.'
+            results, query, solr_status_code = get_solr_data_match('', title, match_doctype, extra_filter)
+
+    # no result from title either
+    if len(results) == 0 and solr_status_code == 200:
+        current_app.logger.debug('No result from solr with Title.')
+        comment += ' No result from solr with Title.'
+        return create_and_return_response(match='', query=query, comment=comment)
+
+    match = score_match(abstract, title, author, year, results)
+    return create_and_return_response(match, query, comment)
