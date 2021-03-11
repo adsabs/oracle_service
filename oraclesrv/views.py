@@ -264,11 +264,11 @@ def matchdoc():
             if match:
                 return create_and_return_response(match, query)
             else:
-                current_app.logger.debug('No matches with DOI, trying Abstract.')
-                comment = ' No matches with DOI, trying Abstract.'
+                current_app.logger.debug('No matches with DOI %s, trying Abstract.'%doi)
+                comment = ' No matches with DOI %s, trying Abstract.'%doi
         else:
-            current_app.logger.debug('No result from solr with DOI.')
-            comment = ' No result from solr with DOI.'
+            current_app.logger.debug('No result from solr with DOI %s.'%doi)
+            comment = ' No result from solr with DOI %s.'%doi
 
     current_app.logger.debug('with parameters: abstract={abstract}, title={title}, author={author}, year={year}, doctype={doctype}'.format(
                                                abstract=abstract[:100]+'...', title=title, author=author, year=year, doctype=doctype))
