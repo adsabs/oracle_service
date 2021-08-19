@@ -139,6 +139,8 @@ def score_match(abstract, title, author, year, matched_docs):
         scores = []
         if abstract.lower() != 'not available':
             scores.append(fuzz.token_set_ratio(abstract, match_abstract)/100.0)
+        else:
+            scores.append(0)
         scores.append(fuzz.partial_ratio(title, match_title)/100.0)
         scores.append(get_author_score(author, match_author))
         scores.append(get_year_score(abs(int(match_year)-int(year))))
@@ -253,7 +255,7 @@ def clean_data(input):
         current_app.logger.error('Illegal unicode character in found %s' %input)
         input = remove_control_chars(input).strip()
 
-    output = input.replace(' \n', '').replace('\n', '')
+    output = input.replace(' \n', '').replace('\n', '').replace(' <P/>', '').rstrip('\\')
     output = output.strip().replace('"', '')
 
     # remove any latex or html tags

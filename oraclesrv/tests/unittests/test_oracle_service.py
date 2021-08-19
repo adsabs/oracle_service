@@ -397,7 +397,7 @@ class test_oracle(TestCase):
             self.assertEqual(result['query'],
                              'topn(10, similar("Population of hot subdwarf stars studied with Gaia III Catalogue of  known hot subdwarf stars Data Release 2", input title, 16, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
-                             [{u'confidence': 1, u'bibcode': u'2020A&A...635A.193G', u'scores': {u'title': 0.99, u'abstract': 0.85, u'year': 1, u'author': 1.0}}])
+                             [{u'confidence': 1, u'bibcode': u'2020A&A...635A.193G', u'scores': {u'title': 0.99, u'abstract': 0, u'year': 1, u'author': 1.0}}])
 
     def test_matchdoc_endpoint_matching_thesis(self):
         """
@@ -486,6 +486,59 @@ class test_oracle(TestCase):
         """
         abstract = "\x01An    investigation"
         self.assertEqual(clean_data(abstract), "An investigation")
+
+
+    def test_matchdoc_endpoint_matched_with_no_abstract(self):
+        """
+        Tests matchdoc endpoint using metadata abstract/title to query solr, when there is no abstract, and we found a match
+        """
+        # the mock is for solr call
+        with mock.patch.object(self.current_app.client, 'get') as get_mock:
+            get_mock.return_value = mock_response = mock.Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {u'responseHeader': {u'status': 0,
+                                                                   u'QTime': 282,
+                                                                   u'params': {u'x-amzn-trace-id': u'Root=1-5dc34783-7174b614efe519dc61670d30;-',
+                                                                               u'rows': u'2',
+                                                                               u'q': u'topn(2, similar("Using Gaussian Process regression to analyze the Martian surface methane Tunable Laser Spectrometer (TLS) data reported by Webster (2018), we find that the TLS data, taken as a whole, are not statistically consistent with seasonal variability. The subset of data derived from an enrichment protocol of TLS, if considered in isolation, are equally consistent with either stochastic processes or periodic variability, but the latter does not favour seasonal variation.", input abstract, 20, 2))',
+                                                                               u'start': u'0',
+                                                                               u'wt': u'json',
+                                                                               u'fl': u'bibcode,abstract,title,author_norm,year,doctype,identifier'}},
+                                               u'response': {u'start': 0,
+                                                             u'numFound': 1,
+                                                             u'docs': [{u'title': [u'Statistical analysis of Curiosity data shows no evidence for a strong seasonal cycle of Martian methane'],
+                                                                        u'abstract': u'Using Gaussian process regression to analyze the Martian surface methane Tunable Laser Spectrometer (TLS) data reported by Webster et al. (2018), we find that the TLS data, taken as a whole, do not indicate seasonal variability. Enrichment protocol CH<SUB>4</SUB> data are consistent with either stochastic variation or a spread of periods without seasonal preference.',
+                                                                        u'bibcode': u'2020Icar..33613407G',
+                                                                        u'author_norm': [u'Gillen, E', u'Rimmer, P', u'Catling, D'],
+                                                                        u'year': u'2020',
+                                                                        u'doctype': u'article',
+                                                                        u'identifier': [u'2019arXiv190802041G', u'2020Icar..33613407G', u'10.1016/j.icarus.2019.113407', u'10.1016/j.icarus.2019.113407', u'arXiv:1908.02041', u'2019arXiv190802041G'],
+                                                                        },
+                                                                       {u'title': [u'Radiometric Calibration of Tls Intensity: Application to Snow Cover Change Detection'],
+                                                                        u'abstract': u'This paper reports on the radiometric calibration and the use of calibrated intensity data in applications related to snow cover monitoring with a terrestrial laser scanner (TLS). An application of the calibration method to seasonal snow cover change detection is investigated. The snow intensity from TLS data was studied in Sodankyl\xe4, Finland during the years 2008-2009 and in Kirkkonummi, Finland in the winter 2010-2011. The results were used to study the behaviour of TLS intensity data on different types of snow and measurement geometry. The results show that the snow type seems to have little or no effect on the incidence angle behaviour of the TLS intensity and that the laser backscatter from the snow surface is not directly related to any of the snow cover properties, but snow structure has a clear effect on TLS intensity.',
+                                                                        u'bibcode': u'2011ISPAr3812W.175A',
+                                                                        u'author_norm': [u'Anttila, K', u'Kaasalainen, S', u'Krooks, A', u'Kaartinen, H', u'Kukko, A', u'Manninen, T', u'Lahtinen, P', u'Siljamo, N'],
+                                                                        u'year': u'2011',
+                                                                        u'doctype': u'article',
+                                                                        u'identifier': [u'2011ISPAr3812W.175A', u'10.5194/isprsarchives-XXXVIII-5-W12-175-2011', u'10.5194/isprsarchives-XXXVIII-5-W12-175-2011']
+                                                                       }]
+                                                             }
+                                               }
+            # this bibcode actually does have abstract, for test purposes, for testing with no abstract and match
+            data = {"bibcode":"2019arXiv190802041G",
+                    "abstract":"Not Available <P/>",
+                    "title":"Statistical analysis of Curiosity data shows no evidence for a strong seasonal cycle of Martian methane",
+                    "author":"Gillen, Ed; Rimmer, Paul B; Catling, David C",
+                    "year":"2020",
+                    "doctype":"eprint"}
+            r= self.client.post(path='/matchdoc', data=json.dumps(data))
+            result = json.loads(r.data)
+            self.assertEqual(result['query'],
+                             'topn(10, similar("Statistical analysis of Curiosity data shows no evidence for a strong seasonal cycle of Martian methane", input title, 13, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
+            self.assertEqual(result['match'],
+                             [{'confidence': 1, 'bibcode': '2020Icar..33613407G', 'scores': {'title': 1.0, 'abstract': 0, 'year': 1, 'author': 1.0}}])
+
+
 
 if __name__ == "__main__":
     unittest.main()
