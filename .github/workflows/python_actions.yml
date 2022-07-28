@@ -6,10 +6,16 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    env:
+      PGDATABASE: test
+      PGPASSWORD: postgres
+      PGUSER: postgres
+      PGHOST: localhost
+      PGPORT: 5432
 
     services:
       postgres:
-        image: postgres:9.6
+        image: postgres:12.7
         env:
           POSTGRES_DB: test
           POSTGRES_PASSWORD: postgres
