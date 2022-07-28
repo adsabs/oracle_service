@@ -194,12 +194,14 @@ class test_oracle(TestCase):
                     "author":"Gillen, Ed; Rimmer, Paul B; Catling, David C",
                     "year":"2020",
                     "doctype":"eprint"}
-            r= self.client.post(path='/matchdoc', data=json.dumps(data))
+            r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'topn(10, similar("Using Gaussian Process regression to analyze the Martian surface methane Tunable Laser Spectrometer (TLS) data reported by Webster (2018), we find that the TLS data, taken as a whole, are not statistically consistent with seasonal variability. The subset of data derived from an enrichment protocol of TLS, if considered in isolation, are equally consistent with either stochastic processes or periodic variability, but the latter does not favour seasonal variation.", input abstract, 20, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
-                             [{'confidence': 1, 'bibcode': '2020Icar..33613407G', 'scores': {'title': 1.0, 'abstract': 0.9, 'year': 1, 'author': 1.0}}])
+                             [{'source_bibcode': '2019arXiv190802041G', 'matched_bibcode': '2020Icar..33613407G',
+                               'confidence': '0.9742327', 'matched': 1,
+                               'scores': {'abstract': 0.9, 'title': 1.0, 'author': 1, 'year': 1}}])
 
     def test_matchdoc_endpoint_no_result_from_solr_metadata(self):
         """
@@ -226,7 +228,7 @@ class test_oracle(TestCase):
                     "author":"Gillen, Ed; Rimmer, Paul B; Catling, David C",
                     "year":"2020",
                     "doctype":"eprint"}
-            r= self.client.post(path='/matchdoc', data=json.dumps(data))
+            r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'topn(10, similar("Statistical analysis of Curiosity data shows no evidence for a strong seasonal cycle of Martian methane", input title, 13, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
@@ -270,12 +272,14 @@ class test_oracle(TestCase):
                     "year": "2019",
                     "doi": "10.1007/JHEP10(2019)244",
                     "doctype":"eprint"}
-            r= self.client.post(path='/matchdoc', data=json.dumps(data))
+            r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'doi:"10.1007/JHEP10(2019)244" doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
-                             [{'confidence': 1, 'bibcode': '2019JHEP...10..244S', 'scores': {'title': 0.99, 'abstract': 0.94, 'doi': 1.0, 'year': 1, 'author': 0.3}}])
+                             [{'source_bibcode': '2019arXiv190804722C', 'matched_bibcode': '2019JHEP...10..244S',
+                               'confidence': '1.95856875', 'matched': 1,
+                               'scores': {'abstract': 0.94, 'title': 0.99, 'author': 0.3, 'year': 1, 'doi': 1.0}}])
 
     def test_matchdoc_endpoint_with_doi_not_matching(self):
         """
@@ -312,12 +316,14 @@ class test_oracle(TestCase):
                     "year": "2019",
                     "doi": "10.1007/JHEP10(2019)032",
                     "doctype":"eprint"}
-            r= self.client.post(path='/matchdoc', data=json.dumps(data))
+            r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'doi:"10.1007/JHEP10(2019)032" doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
-                             [{u'confidence': 1, u'bibcode': u'2019JHEP...06..121A', u'scores': {u'title': 0.99, u'abstract': 0.92, u'doi': 0.0, u'year': 1, u'author': 1.0}}])
+                             [{'source_bibcode': '2019arXiv190500882A', 'matched_bibcode': '2019JHEP...06..121A',
+                               'confidence': '1.97931993', 'matched': 1,
+                               'scores': {'abstract': 0.92, 'title': 0.99, 'author': 1, 'year': 1, 'doi': 1.0}}])
 
     def test_matchdoc_endpoint_with_accented_author(self):
         """
@@ -352,12 +358,14 @@ class test_oracle(TestCase):
                     "author": u"Riedinger, Ralf; Wallucks, Andreas; Marinkovic, Igor; L\xf6schnauer, Clemens; Aspelmeyer, Markus; Hong, Sungkun; Gr\xf6blacher, Simon",
                     "year": "2017",
                     "doctype":"eprint"}
-            r= self.client.post(path='/matchdoc', data=json.dumps(data))
+            r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'topn(10, similar("Entanglement, an essential feature of quantum theory that allows forinseparable quantum correlations to be shared between distant parties, is acrucial resource for quantum networks. Of particular importance is the abilityto distribute entanglement between remote objects that can also serve asquantum memories. This has been previously realized using systems such as warmand cold atomic vapours, individual atoms and ions, and defects in solid-statesystems. Practical communication applications require a combination of severaladvantageous features, such as a particular operating wavelength, highbandwidth and long memory lifetimes. Here we introduce a purely micromachinedsolid-state platform in the form of chip-based optomechanical resonators madeof nanostructured silicon beams. We create and demonstrate entanglement betweentwo micromechanical oscillators across two chips that are separated by 20centimetres. The entangled quantum state is distributed by an optical field ata designed wavelength near 1550 nanometres. Therefore, our system can bedirectly incorporated in a realistic fibre-optic quantum network operating inthe conventional optical telecommunication band. Our results are an importantstep towards the development of large-area quantum networks based on siliconphotonics.", input abstract, 49, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
-                             [{u'confidence': 1, u'bibcode': u'2018Natur.556..473R', u'scores': {u'title': 1.0, u'abstract': 0.91, u'year': 1, u'author': 0.62}}])
+                             [{'source_bibcode': '2017arXiv171011147R', 'matched_bibcode': '2018Natur.556..473R',
+                               'confidence': '0.9671844', 'matched': 1,
+                               'scores': {'abstract': 0.91, 'title': 1.0, 'author': 0.62, 'year': 1}}])
 
     def test_matchdoc_endpoint_no_abstract(self):
         """
@@ -392,12 +400,14 @@ class test_oracle(TestCase):
                     "abstract": "Not Available <P/>",
                     "author": "Geier, S.",
                     "doctype":"eprint"}
-            r= self.client.post(path='/matchdoc', data=json.dumps(data))
+            r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'topn(10, similar("Population of hot subdwarf stars studied with Gaia III Catalogue of  known hot subdwarf stars Data Release 2", input title, 16, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
-                             [{u'confidence': 1, u'bibcode': u'2020A&A...635A.193G', u'scores': {u'title': 0.99, u'abstract': 0, u'year': 1, u'author': 1.0}}])
+                             [{'source_bibcode': '2020arXiv200210896G', 'matched_bibcode': '2020A&A...635A.193G',
+                               'confidence': '0.99', 'matched': 1,
+                               'scores': {'abstract': 0, 'title': 0.99, 'author': 1, 'year': 1}}])
 
     def test_matchdoc_endpoint_matching_thesis(self):
         """
@@ -435,12 +445,14 @@ class test_oracle(TestCase):
                     "year": "2018",
                     "doctype": "eprint",
                     "doi": None}
-            r= self.client.post(path='/matchdoc', data=json.dumps(data))
+            r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'author_norm:"zheng, b" year:[* TO 2018] doctype:(phdthesis OR mastersthesis)')
             self.assertEqual(result['match'],
-                             [{u'confidence': 1, u'bibcode': u'2017PhDT........67Z', u'scores': {u'title': 1.0, u'abstract': 0.89, u'year': 1, u'author': 1.0}}])
+                             [{'source_bibcode': '2018arXiv180310259Z', 'matched_bibcode': '2017PhDT........67Z',
+                               'confidence': '0.9696805', 'matched': 1,
+                               'scores': {'abstract': 0.89, 'title': 1.0, 'author': 1, 'year': 1}}])
             self.assertEqual(result['comment'],
                              'Matching doctype `phdthesis;mastersthesis`.')
 
@@ -471,14 +483,14 @@ class test_oracle(TestCase):
                     "year": "2018",
                     "doctype": "eprint",
                     "doi": None}
-            r= self.client.post(path='/matchdoc', data=json.dumps(data))
+            r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'author_norm:"zheng, b" year:[* TO 2018] doctype:(phdthesis OR mastersthesis)')
             self.assertEqual(result['no match'],
                              'no document was found in solr matching the request.')
             self.assertEqual(result['comment'],
-                             'No matches for thesis.')
+                             'Matching doctype `phdthesis;mastersthesis`. No matches for thesis.')
 
     def test_clean_data(self):
         """
@@ -531,13 +543,14 @@ class test_oracle(TestCase):
                     "author":"Gillen, Ed; Rimmer, Paul B; Catling, David C",
                     "year":"2020",
                     "doctype":"eprint"}
-            r= self.client.post(path='/matchdoc', data=json.dumps(data))
+            r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'topn(10, similar("Statistical analysis of Curiosity data shows no evidence for a strong seasonal cycle of Martian methane", input title, 13, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
-                             [{'confidence': 1, 'bibcode': '2020Icar..33613407G', 'scores': {'title': 1.0, 'abstract': 0, 'year': 1, 'author': 1.0}}])
-
+                             [{'source_bibcode': '2019arXiv190802041G', 'matched_bibcode': '2020Icar..33613407G',
+                               'confidence': '1.0', 'matched': 1,
+                               'scores': {'abstract': 0, 'title': 1.0, 'author': 1, 'year': 1}}])
 
 
 if __name__ == "__main__":

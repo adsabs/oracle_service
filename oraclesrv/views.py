@@ -6,12 +6,26 @@ from flask import current_app, request, Blueprint, Response
 from flask_discoverer import advertise
 
 import json
+import time
 
-from oraclesrv.utils import get_solr_data_recommend, get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_thesis
-from oraclesrv.score import clean_data, score_match, encode_author, format_author, score_match_doi
+from adsmsg import DocMatchRecordList
+from google.protobuf.json_format import Parse, ParseError
+
+from oraclesrv.utils import get_solr_data_recommend, add_records, del_records
+from oraclesrv.keras_model import create_keras_model, load_keras_model
+from oraclesrv.doc_matching import DocMatching, get_requests_params
 
 
 bp = Blueprint('oracle_service', __name__)
+
+# @bp.before_app_first_request
+def docmatch_model():
+    """
+
+    :return:
+    """
+    if current_app.config['ORACLE_SERVICE_LIVE']:
+        current_app.extensions['docmatch_model'] = load_keras_model()
 
 def return_response(results, status_code):
     """
@@ -23,24 +37,6 @@ def return_response(results, status_code):
     r = Response(response=json.dumps(results), status=status_code)
     r.headers['content-type'] = 'application/json'
     return r
-
-def create_and_return_response(match, query, comment=None):
-    """
-
-    :param match:
-    :param query:
-    :param comment:
-    :return:
-    """
-    result = {'query':query}
-    if comment:
-        result.update({'comment': comment.strip()})
-    if len(match) > 0:
-        result.update({'match':match})
-    else:
-        result.update({'no match': 'no document was found in solr matching the request.'})
-    return return_response(results=result, status_code=200)
-
 
 def get_user_info_from_adsws(parameter):
     """
@@ -62,23 +58,6 @@ def get_user_info_from_adsws(parameter):
             current_app.logger.error('adsws exception: %s'%e)
             raise
     return None
-
-def get_requests_params(payload, param, default_value=None, default_type=str):
-    """
-
-    :param payload:
-    :param param:
-    :param default_value:
-    :param default_type:
-    :return:
-    """
-    if payload and param in payload:
-        if type(payload[param]) is list:
-            if default_type == list:
-                return payload[param]
-            return payload[param][0]
-        return payload[param]
-    return default_value
 
 def get_the_reader(request, payload):
     """
@@ -192,8 +171,8 @@ def read_history_post():
     return read_history(payload, the_function, the_reader)
 
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
-@bp.route('/matchdoc', methods=['POST'])
-def matchdoc():
+@bp.route('/docmatch', methods=['POST'])
+def docmatch():
     """
 
     :return:
@@ -208,101 +187,83 @@ def matchdoc():
     if not payload:
         return return_response(results={'error': 'no information received'}, status_code=400)
 
-    # read required params
-    abstract = get_requests_params(payload, 'abstract')
-    title = get_requests_params(payload, 'title')
-    author = get_requests_params(payload, 'author')
-    year = get_requests_params(payload, 'year')
-    doctype = get_requests_params(payload, 'doctype')
-    doi = get_requests_params(payload, 'doi')
-    mustmatch = get_requests_params(payload, 'mustmatch')
-    match_doctype = get_requests_params(payload, 'match_doctype', default_type=list)
+    # start_time = time.time()
+    results, status_code = DocMatching(payload).process()
+    # current_app.logger.debug("Matched doc in {duration} ms".format(duration=(time.time() - start_time) * 1000))
+    return return_response(results, status_code)
 
-    if not (abstract and title and author and year and doctype):
-        current_app.logger.error('missing required parameter(s)')
-        return return_response(results={'error': 'all five parameters are required: `abstract`, `title`, `author`, `year`,  and `doctype`'}, status_code=400)
+@advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
+@bp.route('/update', methods=['PUT'])
+def update():
+    """
+    """
+    try:
+        payload = request.get_json(force=True)  # post data in json
+    except:
+        payload = dict(request.form)  # post data in form encoding
 
-    author = format_author(encode_author(author))
-    comment = ''
+    if not payload:
+        return return_response({'error': 'no data received'}, 400)
 
-    # if matching doctype is specified use that, otherwise go with the default
-    if not match_doctype:
-        match_doctype = current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get(doctype, None)
-        if not match_doctype:
-            current_app.logger.error('invalid doctype %s'%doctype)
-            return return_response(results={'error': 'invalid doctype %s'%doctype}, status_code=400)
-    else:
-        comment = 'Matching doctype `%s`.'%';'.join(match_doctype)
-        is_thesis = any(input in match_doctype for input in current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get('thesis'))
-        if is_thesis:
-            results, query, solr_status_code = get_solr_data_match_thesis(author, year, ' OR '.join(match_doctype))
-            # if any records from solr
-            if isinstance(results, list) and len(results) > 0:
-                match = score_match(abstract, title, author, year, results)
-                if not match:
-                    current_app.logger.debug('No result from solr for thesis.')
-                    comment = ' No result from solr for thesis.'
-            else:
-                match = ''
-                current_app.logger.debug('No matches for thesis.')
-                comment = ' No matches for thesis.'
-            return create_and_return_response(match=match, query=query, comment=comment)
+    if len(payload) == 0:
+        return return_response({'error': 'no records received to update db'}, 400)
 
-    abstract = clean_data(abstract)
-    title = clean_data(title)
-    extra_filter = 'property:REFEREED' if 'eprint' not in match_doctype else ''
-    match_doctype = ' OR '.join(match_doctype)
+    current_app.logger.info('received request to populate db with %d records' % (len(payload)))
 
-    # if doi is available try query on doi first
-    if doi:
-        current_app.logger.debug('with parameter: doi={doi}'.format(doi=doi))
-        results, query, solr_status_code = get_solr_data_match_doi(doi, match_doctype)
-        # if any records from solr
-        # compute the score, if score is 0 doi was wrong, so continue on to query using similar
-        if isinstance(results, list) and len(results) > 0:
-            match = score_match_doi(doi, abstract, title, author, year, results)
-            if match:
-                return create_and_return_response(match, query)
-            else:
-                current_app.logger.debug('No matches with DOI %s, trying Abstract.'%doi)
-                comment = ' No matches with DOI %s, trying Abstract.'%doi
-        else:
-            current_app.logger.debug('No result from solr with DOI %s.'%doi)
-            comment = ' No result from solr with DOI %s.'%doi
+    try:
+        data = Parse(json.dumps({"status": 2, "docmatch_records": payload}), DocMatchRecordList())
+    except ParseError as e:
+        return return_response({'error': 'unable to extract data from protobuf structure -- %s' % (e)}, 400)
 
-    current_app.logger.debug('with parameters: abstract={abstract}, title={title}, author={author}, year={year}, doctype={doctype}'.format(
-                                               abstract=abstract[:100]+'...', title=title, author=author, year=year, doctype=doctype))
+    status, text = add_records(data)
+    if status == True:
+        current_app.logger.info('completed request to populate db with %d records' % (len(payload)))
+        return return_response({'status': text}, 200)
+    current_app.logger.info('failed to populate db with %d records' % (len(payload)))
+    return return_response({'error': text}, 400)
 
-    # query solr using similar with abstract
-    results, query, solr_status_code = get_solr_data_match(abstract, title, match_doctype, extra_filter)
+@advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
+@bp.route('/delete', methods=['DELETE'])
+def delete():
+    """
+    """
+    try:
+        payload = request.get_json(force=True)  # post data in json
+    except:
+        payload = dict(request.form)  # post data in form encoding
 
-    # if solr was not able to find any matches with abstract, attempt it again with title
-    if solr_status_code == 200:
-        # no result from solr
-        if len(results) == 0:
-            current_app.logger.debug('No result from solr with Abstract, trying Title.')
-            comment += ' No result from solr with Abstract, trying Title.'
-            results, query, solr_status_code = get_solr_data_match('', title, match_doctype, extra_filter)
-        # got records from solr, see if we can get a match
-        else:
-            match = score_match(abstract, title, author, year, results)
-            if len(match) > 0:
-                confidence = match[0].get('confidence', 0)
-                # if we have a match, or if we dont have a match, but it is not a must, return
-                if confidence != 0 or not mustmatch:
-                    return create_and_return_response(match, query, comment)
-            # otherwise if no match with abstract, and we think we should have this in solr
-            # and thus have a much, try with title, this is the case when abstract has changed
-            # so drastically between the arXiv version and the publisher version
-            current_app.logger.debug('No matches with Abstract, trying Title.')
-            comment += ' No matches with Abstract, trying Title.'
-            results, query, solr_status_code = get_solr_data_match('', title, match_doctype, extra_filter)
+    if not payload:
+        return return_response({'error': 'no information received'}, 400)
 
-    # no result from title either
-    if len(results) == 0 and solr_status_code == 200:
-        current_app.logger.debug('No result from solr with Title.')
-        comment += ' No result from solr with Title.'
-        return create_and_return_response(match='', query=query, comment=comment)
+    if len(payload) == 0:
+        return return_response({'error': 'no records received to delete from db'}, 400)
 
-    match = score_match(abstract, title, author, year, results)
-    return create_and_return_response(match, query, comment)
+    current_app.logger.info('received request to delete from db %d bibcodes' % (len(payload)))
+
+    try:
+        data = Parse(json.dumps({"status": 2, "docmatch_records": payload}), DocMatchRecordList())
+    except ParseError as e:
+        return return_response({'error': 'unable to extract data from protobuf structure -- %s' % (e)}, 400)
+
+    status, count, text = del_records(data)
+    if status == True:
+        current_app.logger.info('completed request to delete from db total of %d records' % (count))
+        return return_response({'status': text}, 200)
+    current_app.logger.info('failed to delete from db %d bibcodes' % (len(payload)))
+    return return_response({'error': text}, 400)
+
+
+@advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
+@bp.route('/pickle_docmatch', methods=['PUT'])
+def pickle_docmatch():
+    """
+    endpoint to be called locally only whenever the models needs be changed
+
+    :return:
+    """
+    # to save a new model
+    create_keras_model()
+
+    return return_response({'OK': 'objects saved'}, 200, 'text/plain; charset=UTF8')
+
+
