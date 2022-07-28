@@ -4,18 +4,21 @@ import os
 PROJECT_HOME = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../'))
 sys.path.append(PROJECT_HOME)
 
-from flask_testing import TestCase
 import unittest
 import json
 import mock
 
 import oraclesrv.app as app
+from oraclesrv.tests.unittests.base import TestCaseDatabase
 from oraclesrv.views import get_user_info_from_adsws
 from oraclesrv.score import clean_data
 
-class test_oracle(TestCase):
+class test_oracle(TestCaseDatabase):
     def create_app(self):
-        self.current_app = app.create_app(**{'TESTING': True})
+        self.current_app = app.create_app(**{
+            'TESTING': True,
+            'SQLALCHEMY_DATABASE_URI': self.postgresql_url,
+        })
         return self.current_app
 
     def test_readhist_endpoint_post(self):
