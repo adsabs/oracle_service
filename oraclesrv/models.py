@@ -13,7 +13,7 @@ class DocMatch(Base):
     confidence = Column(Float)
     date = Column(DateTime, default=func.now())
 
-    def __init__(self, source_bibcode, matched_bibcode, confidence, date):
+    def __init__(self, source_bibcode, matched_bibcode, confidence, date=None):
         """
 
         :param source_bibcode:

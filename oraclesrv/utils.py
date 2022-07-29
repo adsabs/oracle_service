@@ -6,6 +6,7 @@ import requests
 import flask
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import or_, and_, desc
+from sqlalchemy.sql import exists
 from sqlalchemy.dialects.postgresql import insert
 
 from oraclesrv.models import DocMatch
@@ -121,7 +122,8 @@ def get_solr_data_match_doi(doi, doctype):
     :return:
     """
     try:
-        query = 'doi:"{doi}" doctype:({doctype}) property:REFEREED'.format(doi=doi, doctype=doctype)
+        # query = 'doi:"{doi}" doctype:({doctype}) property:REFEREED'.format(doi=doi, doctype=doctype)
+        query = 'doi:"{doi}" doctype:({doctype})'.format(doi=doi, doctype=doctype)
         result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,identifier')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
@@ -155,9 +157,18 @@ def add_a_record(docmatch):
     :param docmatch:
     :return:
     """
+    # self.logger.debug("Added a `Reference` record successfully.")
+    # return reference.bibcode, reference.source_filename
+
     try:
         with current_app.session_scope() as session:
-            session.execute(docmatch)
+            found = session.query(exists().where(and_(DocMatch.source_bibcode == docmatch.source_bibcode,
+                                                      DocMatch.matched_bibcode == docmatch.matched_bibcode,
+                                                      DocMatch.confidence == docmatch.confidence))).scalar()
+            if found:
+                return True, 'record already in db'
+            session.add(docmatch)
+            session.commit()
         current_app.logger.debug('updated db with a new record successfully')
         return True, 'updated db with a new record successfully'
     except SQLAlchemyError as e:

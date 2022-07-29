@@ -14,7 +14,8 @@ import unidecode
 
 from flask import current_app
 
-from oraclesrv.utils import get_a_record
+from oraclesrv.utils import get_a_record, add_a_record
+from oraclesrv.models import DocMatch
 
 re_match_collaboration = re.compile(r'([Cc]ollaboration[s\s]*)')
 def count_matching_authors(ref_authors, ads_authors):
@@ -103,16 +104,6 @@ def get_matches(source_bibcode, abstract, title, author, year, matched_docs):
     :param matched_docs:
     :return:
     """
-    def convert_confidence_to_str(results):
-        """
-
-        :param results:
-        :return:
-        """
-        for result in results:
-            result['confidence'] = str(result['confidence'])
-        return results
-
     results = []
     for doc in matched_docs:
         match_bibcode = doc.get('bibcode', '')
@@ -159,12 +150,14 @@ def get_matches(source_bibcode, abstract, title, author, year, matched_docs):
         return []
 
     if len(results) == 1:
-        return convert_confidence_to_str(results)
+        if results[0]['matched']:
+            add_a_record(DocMatch(results[0]['source_bibcode'], results[0]['matched_bibcode'], results[0]['confidence']))
+        return results
 
     # if multiple records are returned, make sure highest is at the top, then remove any records that have confidence difference with the largest > 0.5
     results = sorted(results, key=lambda x: x['confidence'], reverse=True)
     results = [results[0]] + [result for result in results[1:] if (results[0]['confidence'] - result['confidence']) < 0.5]
-    return convert_confidence_to_str(results)
+    return results
 
 def get_doi_match(source_bibcode, abstract, title, author, year, matched_docs):
     """
@@ -180,10 +173,9 @@ def get_doi_match(source_bibcode, abstract, title, author, year, matched_docs):
     results = get_matches(source_bibcode, abstract, title, author, year, matched_docs)
     # need to have a high confidence, otherwise the doi was wrong
     if len(results) == 1:
-        confidence = float(results[0]['confidence'])
-        if confidence > 0.5:
-            # add doi score of 1. if adding 1 to a floating point would cause more significant digits
-            results[0]['confidence'] = '1' + results[0]['confidence'][1:]
+        if results[0]['confidence'] > 0.5:
+            # add doi score of 1. keep significant digits fixed.
+            results[0]['confidence'] = float('%.7g' % (1 + results[0]['confidence']))
             results[0].get('scores', {}).update({'doi': 1.0})
             return results
     return []

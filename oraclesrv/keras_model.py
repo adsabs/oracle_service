@@ -29,8 +29,6 @@ class KerasModel(object):
 
     model_file = '/keras_model_files/4layer4dim.pkl'
 
-    df_predict = pd.DataFrame(columns=['abstract', 'title', 'author', 'year'])
-
     def train(self):
         """
 
@@ -81,9 +79,7 @@ class KerasModel(object):
         :param scores: list of scores for [abstract, title, author, year]
         :return:
         """
-        df = self.df_predict.copy()
-        df = df.append({'abstract': scores[0], 'title': scores[1], 'author': scores[2], 'year': scores[3]}, ignore_index=True)
-        return np.take(self.model.predict(df), 0)
+        return float('%.7g' % (np.float32(np.take(self.model.predict([scores]), 0)).item()))
 
     def save(self):
         """

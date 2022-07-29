@@ -161,7 +161,7 @@ class TestDatabase(TestCaseDatabase):
         # best match for this second arXiv paper is the publisher's first paper, the publisher's second paper not yet published
         best_match = {'source_bibcode': '2022arXiv220606316S',
                       'matched_bibcode': '2021CSF...15311505S',
-                      'confidence': '0.7259934',
+                      'confidence': 0.7259934,
                       'matched': 1,
                       'scores': {'abstract': 0.76, 'title': 0.98, 'author': 1, 'year': 1}}
         matches = get_matches(source_bibcode, abstract, title, author, year, matched_docs)
