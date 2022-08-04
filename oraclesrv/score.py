@@ -14,6 +14,11 @@ import unidecode
 
 from flask import current_app
 
+from oraclesrv.utils import get_a_record, add_a_record
+from oraclesrv.models import DocMatch
+
+DOI_CONFIDENCE_SCORE = 1
+
 re_match_collaboration = re.compile(r'([Cc]ollaboration[s\s]*)')
 def count_matching_authors(ref_authors, ads_authors):
     """
@@ -89,42 +94,16 @@ def get_year_score(diff):
         return 0.25
     return 0
 
-def get_confidence_score(scores):
-    """
-
-    :param scores: list of scores for [abstract, title, author, year]
-    :return:
-    """
-    confidence = sum([1 for score in scores if score >= 0.8]) >= len(scores) - 1 or \
-                 sum(scores[0:2]) >= 1.8
-    if confidence:
-        return 1
-
-    confidence = sum(scores[0:2]) >= 1.5  and sum(scores[2:4]) >= 1   or \
-                 sum(scores[0:2]) >= 1.35 and sum(scores[2:4]) == 1.5 or \
-                 sum(scores[0:2]) >= 1.25 and sum(scores[2:4]) == 1.75
-    if confidence:
-        return 0.67
-
-    confidence = (sum(scores[0:2]) >= 1.25 and sum(scores[2:4]) >= 1.5) or \
-                 (sum(scores[0:2]) >= 1    and sum(scores[2:4]) >= 1.75)
-    if confidence:
-        return 0.5
-
-    confidence = sum(scores[0:2]) >= 1 and sum(scores[2:4]) >= 1 and scores[2] != 0
-    if confidence:
-        return 0.33
-
-    return 0
-
 re_match_arXiv = re.compile(r'(\d\d\d\darXiv.*)')
-def score_match(abstract, title, author, year, matched_docs):
+def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs):
     """
 
+    :param source_bibcode:
     :param abstract:
     :param title:
     :param author:
     :param year:
+    :param doi:
     :param matched_docs:
     :return:
     """
@@ -135,57 +114,91 @@ def score_match(abstract, title, author, year, matched_docs):
         match_title = strip_latex_html(' '.join(doc.get('title', [])))
         match_author = doc.get('author_norm', [])
         match_year = doc.get('year', None)
+        match_doi = doc.get('doi', [])
+        match_identifier = doc.get('identifier', [])
 
-        scores = []
         if abstract.lower() != 'not available':
-            scores.append(fuzz.token_set_ratio(abstract, match_abstract)/100.0)
+            scores = [
+                fuzz.token_set_ratio(abstract, match_abstract) / 100.0,
+                fuzz.partial_ratio(title, match_title) / 100.0,
+                get_author_score(author, match_author),
+                get_year_score(abs(int(match_year) - int(year)))
+            ]
+            confidence = current_app.extensions['docmatch_model'].predict(scores)
         else:
-            scores.append(0)
-        scores.append(fuzz.partial_ratio(title, match_title)/100.0)
-        scores.append(get_author_score(author, match_author))
-        scores.append(get_year_score(abs(int(match_year)-int(year))))
+            scores = [
+                0,
+                fuzz.partial_ratio(title, match_title) / 100.0,
+                get_author_score(author, match_author),
+                get_year_score(abs(int(match_year) - int(year)))
+            ]
+            # not many records with no abstract, hence not possible to train a network for when there are only
+            # three scores, the best approach is to take the sum of weighted similarity scores for the three scores
+            # with the author weighted more importantly
+            confidence = round(scores[1] * 0.3 + scores[1] * 0.4 + scores[2] * 0.3, 2)
 
-        confidence = get_confidence_score(scores)
-        if confidence > 0:
-            result = {'bibcode': match_bibcode, 'confidence': confidence,
-                      'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2], 'year': scores[3]}}
-            results.append(result)
+        # even if confidence is very low, but doi matches, move it through
+        if confidence < 0.01 and doi not in match_doi:
+            continue
+        # see if either of these bibcodes have already been matched
+        prev_match = get_a_record(source_bibcode, match_bibcode)
+        if prev_match:
+            prev_bibcodes = [prev_match['source_bibcode'], prev_match['matched_bibcode']]
+            # if prev record is the current match and the bibcode has changed in the meantime
+            if prev_match['source_bibcode'] in match_identifier or prev_match['matched_bibcode'] in match_identifier:
+                prev_bibcodes += match_identifier
 
-    # if multiple records are returned, push the one with highest score up
-    return sorted(results,
-                  key=lambda x: (x['confidence'],
-                                 x['scores'].get('abstract') + x['scores'].get('title') + x['scores'].get('author'),
-                                 x['scores'].get('year')), reverse=True)
+            # current confidence is without the doi score, hence if the prev match was saved with doi score take it out
+            prev_confidence = prev_match['confidence'] if prev_match['confidence'] < DOI_CONFIDENCE_SCORE else \
+                              prev_match['confidence'] - DOI_CONFIDENCE_SCORE
 
-def score_match_doi(doi, abstract, title, author, year, matched_docs):
+            # is it the same record being matched again
+            if source_bibcode in prev_bibcodes and match_bibcode in prev_bibcodes and abs(prev_confidence - confidence) < 0.1:
+                # return the confidence that is recorded in db
+                confidence = prev_confidence
+
+            # if there was a match, see if the confidence is higher then the current match
+            # if yes, ignore current match
+            elif (match_bibcode in prev_bibcodes or source_bibcode in prev_bibcodes) and prev_confidence > confidence:
+                continue
+
+        results.append({'source_bibcode': source_bibcode, 'matched_bibcode': match_bibcode,
+                        'confidence': confidence, 'matched': int(confidence > 0.5),
+                        'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2], 'year': scores[3]}})
+
+    if len(results) == 0:
+        return []
+
+    if len(results) == 1:
+        if results[0]['matched']:
+            add_a_record(DocMatch(results[0]['source_bibcode'], results[0]['matched_bibcode'], results[0]['confidence']))
+        return results
+
+    # if multiple records are returned, make sure highest is at the top, then remove any records that have confidence difference with the largest > 0.5
+    results = sorted(results, key=lambda x: x['confidence'], reverse=True)
+    results = [results[0]] + [result for result in results[1:] if (results[0]['confidence'] - result['confidence']) < 0.5]
+    return results
+
+def get_doi_match(source_bibcode, abstract, title, author, year, doi, matched_docs):
     """
 
-    :param doi:
+    :param source_bibcode:
     :param abstract:
     :param title:
     :param author:
     :param year:
+    :param doi:
     :param matched_docs:
     :return:
     """
-    results = score_match(abstract, title, author, year, matched_docs)
-    try:
-        matched_doi = matched_docs[0].get('doi', [])[0]
-        if matched_doi == doi:
-            confidence = results[0].get('confidence', None)
-            abstract_score = results[0].get('scores', {}).get('abstract', 0)
-            # possibly the doi is wrong, so try similar query
-            if confidence != 1 or abstract_score == 0:
-                return []
-            confidence = round(old_div((confidence + 1.0),2), 2)
-            confidence = int(confidence) if float(confidence).is_integer() else confidence
-            results[0].update({'confidence': confidence})
-            results[0].get('scores', {}).update({'doi':1.0})
-            return results
-        results[0].get('scores', {}).update({'doi': 0.0})
-    except:
-        pass
-    return results
+    results = get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs)
+    # need to have a high confidence, otherwise the doi was wrong
+    if len(results) == 1:
+        # add doi score of 1. keep significant digits fixed.
+        results[0]['confidence'] = float('%.7g' % (DOI_CONFIDENCE_SCORE + results[0]['confidence']))
+        results[0].get('scores', {}).update({'doi': 1.0})
+        return results
+    return []
 
 def get_illegal_char_regex():
     """

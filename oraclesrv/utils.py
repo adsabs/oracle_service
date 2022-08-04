@@ -4,6 +4,13 @@ import re
 from flask import current_app
 import requests
 import flask
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import or_, and_, desc
+from sqlalchemy.sql import exists
+from sqlalchemy.dialects.postgresql import insert
+
+from oraclesrv.models import DocMatch
+
 
 def get_solr_data(rows, query, fl):
     """
@@ -99,7 +106,7 @@ def get_solr_data_match(abstract, title, doctype, extra_filter):
         return [], '', 200
 
     try:
-        result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype,identifier')
+        result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype,doi,identifier')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -115,8 +122,9 @@ def get_solr_data_match_doi(doi, doctype):
     :return:
     """
     try:
-        query = 'doi:"{doi}" doctype:({doctype}) property:REFEREED'.format(doi=doi, doctype=doctype)
-        result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,identifier')
+        # query = 'doi:"{doi}" doctype:({doctype}) property:REFEREED'.format(doi=doi, doctype=doctype)
+        query = 'doi:"{doi}" doctype:({doctype})'.format(doi=doi, doctype=doctype)
+        result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -135,10 +143,111 @@ def get_solr_data_match_thesis(author, year, doctype):
         author = author.split(',')
         author_norm = '{}, {}'.format(author[0].strip(), author[1].strip()[0]).lower()
         query = 'author_norm:"{author}" year:[* TO {year}] doctype:({doctype})'.format(author=author_norm, year=year, doctype=doctype)
-        result, status_code = get_solr_data(rows=3, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,identifier')
+        result, status_code = get_solr_data(rows=3, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr': '%d: %s' % (e.response.status_code, e.response.reason)}
         status_code = e.response.status_code
 
     return result, query, status_code
+
+def add_a_record(docmatch):
+    """
+
+    :param docmatch:
+    :return:
+    """
+    # self.logger.debug("Added a `Reference` record successfully.")
+    # return reference.bibcode, reference.source_filename
+
+    try:
+        with current_app.session_scope() as session:
+            found = session.query(exists().where(and_(DocMatch.source_bibcode == docmatch.source_bibcode,
+                                                      DocMatch.matched_bibcode == docmatch.matched_bibcode,
+                                                      DocMatch.confidence == docmatch.confidence))).scalar()
+            if found:
+                return True, 'record already in db'
+            session.add(docmatch)
+            session.commit()
+        current_app.logger.debug('updated db with a new record successfully')
+        return True, 'updated db with a new record successfully'
+    except SQLAlchemyError as e:
+        current_app.logger.error('SQLAlchemy: ' + str(e))
+        return False, 'SQLAlchemy: ' + str(e)
+
+def get_a_record(source_bibcode, matched_bibcode):
+    """
+
+    :param source_bibcode:
+    :param matched_bibcode:
+    :return:
+    """
+    with current_app.session_scope() as session:
+        row = session.query(DocMatch).filter(or_(DocMatch.source_bibcode == source_bibcode,
+                                                 DocMatch.matched_bibcode == source_bibcode,
+                                                 DocMatch.source_bibcode == matched_bibcode,
+                                                 DocMatch.matched_bibcode == matched_bibcode)).order_by(desc(DocMatch.confidence)).first()
+        if row:
+            current_app.logger.debug("Fetched a record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
+            return row.toJSON()
+
+    current_app.logger.error("Failed to fetched a record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
+    return None
+
+def add_records(docmatches):
+    """
+    upserts records into db
+
+    :param docmatches:
+    :return: success boolean, plus a status text for retuning error message, if any, to the calling program
+    """
+    rows = []
+    for doc in docmatches.docmatch_records:
+        rows.append({"source_bibcode":doc.source_bibcode,
+                     "matched_bibcode": doc.matched_bibcode,
+                     "confidence": doc.confidence})
+
+    if len(rows) > 0:
+        table = DocMatch.__table__
+        stmt = insert(table).values(rows)
+
+        # get list of fields making up primary key
+        primary_keys = [c.name for c in list(table.primary_key.columns)]
+        # define dict of non-primary keys for updating
+        update_dict = {c.name: c for c in stmt.excluded if not c.primary_key}
+
+        on_conflict_stmt = stmt.on_conflict_do_update(index_elements=primary_keys, set_=update_dict)
+
+        try:
+            with current_app.session_scope() as session:
+                session.execute(on_conflict_stmt)
+            current_app.logger.info('updated db with new data successfully')
+            return True, 'updated db with new data successfully'
+        except SQLAlchemyError as e:
+            session.rollback()
+            current_app.logger.error('SQLAlchemy: ' + str(e))
+            return False, 'SQLAlchemy: ' + str(e)
+    return False, 'unable to add records to the database'
+
+def del_records(docmatches):
+    """
+    delete records from db
+
+    :param docmatches:
+    :return:
+    """
+    try:
+        with current_app.session_scope() as session:
+            count = 0
+            for doc in docmatches.docmatch_records:
+                count += session.query(DocMatch).filter(and_(DocMatch.source_bibcode == doc.source_bibcode,
+                                                             DocMatch.matched_bibcode == doc.matched_bibcode,
+                                                             DocMatch.confidence == doc.confidence)).delete(synchronize_session=False)
+            session.commit()
+    except SQLAlchemyError as e:
+        session.rollback()
+        current_app.logger.error('SQLAlchemy: ' + str(e))
+        return False, 'SQLAlchemy: ' + str(e)
+    return True, count, 'removed ' + str(count) + ' records of ' + str(len(docmatches.docmatch_records)) + ' requested'
+
+

@@ -5,7 +5,7 @@ from flask_discoverer import Discoverer
 
 from adsmutils import ADSFlask
 
-from oraclesrv.views import bp
+from oraclesrv.views import bp, setup_extension
 
 def create_app(**config):
     """
@@ -21,6 +21,9 @@ def create_app(**config):
     app.url_map.strict_slashes = False
 
     Discoverer(app)
+
+    with  app.app_context() as ac:
+        setup_extension()
 
     app.register_blueprint(bp)
     return app

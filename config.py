@@ -7,6 +7,11 @@ REQUESTS_CONNECTION_POOL_ENABLED = True
 ORACLE_SERVICE_SOLRQUERY_URL = "https://dev.adsabs.harvard.edu/v1/search/query"
 ORACLE_SERVICE_ADSWS_API_TOKEN = 'this is a secret api token!'
 
+# db config
+SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://postgres:postgres@localhost:5432/postgres'
+SQLALCHEMY_TRACK_MODIFICATIONS = False
+SQLALCHEMY_ECHO = False
+
 # This is a URL to adsws account info service
 ORACLE_SERVICE_ACCOUNT_INFO_URL = '/account/info'
 
@@ -813,3 +818,7 @@ ORACLE_SERVICE_MATCH_DOCTYPE = {
     'inbook': ['eprint'],
     'thesis': ['phdthesis', 'mastersthesis']
 }
+
+
+# this is false if testing mode
+ORACLE_SERVICE_LIVE = True
