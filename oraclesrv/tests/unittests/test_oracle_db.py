@@ -3,17 +3,14 @@ project_home = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..
 if project_home not in sys.path:
     sys.path.insert(0, project_home)
 
-import unittest
 import json
 
 import oraclesrv.app as app
 from oraclesrv.tests.unittests.base import TestCaseDatabase
-from oraclesrv.utils import get_a_record, del_records
-from oraclesrv.score import get_matches
-# , add_records, get_records_new, add_records_new, del_records_new, get_ids
-# from oraclesrv.views import LinkRequest, PopulateRequest
-#
-# from adsmsg import DocumentRecords
+from oraclesrv.utils import get_a_record, del_records, add_a_record
+from oraclesrv.score import get_matches, get_doi_match
+from oraclesrv.models import DocMatch
+
 
 class TestDatabase(TestCaseDatabase):
 
@@ -161,10 +158,10 @@ class TestDatabase(TestCaseDatabase):
         # best match for this second arXiv paper is the publisher's first paper, the publisher's second paper not yet published
         best_match = {'source_bibcode': '2022arXiv220606316S',
                       'matched_bibcode': '2021CSF...15311505S',
-                      'confidence': 0.7259934,
+                      'confidence': 0.7854116,
                       'matched': 1,
                       'scores': {'abstract': 0.76, 'title': 0.98, 'author': 1, 'year': 1}}
-        matches = get_matches(source_bibcode, abstract, title, author, year, matched_docs)
+        matches = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
         self.assertEqual(len(matches), 1)
         self.assertDictEqual(matches[0], best_match)
 
@@ -172,7 +169,47 @@ class TestDatabase(TestCaseDatabase):
         self.add_stub_data()
 
         # now attempting to get a match returns nothing
-        matches = get_matches(source_bibcode, abstract, title, author, year, matched_docs)
-        print(matches)
+        matches = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
         self.assertEqual(len(matches), 0)
         self.assertEqual(matches, [])
+
+    def test_docmatch_changed_bibcode(self):
+        """
+        test when the bibcode saved in db is different from the current match, but the record is the same and needs
+        to be recognized as such
+        :return:
+        """
+        # add prev match to database
+        prev_match = {'source_bibcode': '2021arXiv210911714Q',
+                      'matched_bibcode': '2022MNRAS.tmp.1429J',
+                      'confidence': 1.982056}
+        add_a_record(DocMatch(prev_match['source_bibcode'], prev_match['matched_bibcode'], prev_match['confidence']))
+
+        # current source with new bibcode, having old bibcode in identifier
+        source_doc = {'abstract': 'We numerically investigate non-Gaussianities in the late-time cosmological density field in Fourier space. We explore various statistics, including the two-point and three-point probability distribution function (PDF) of phase and modulus, and two three-point correlation function of of phase and modulus. We detect significant non-Gaussianity for certain configurations. We compare the simulation results with the theoretical expansion series of {2007ApJS..170....1M}. We find that the  order term alone is sufficiently accurate to describe all the measured non-Gaussianities in not only the PDFs, but also the correlations. We also numerically find that the phase-modulus cross-correlation contributes  to the bispectrum, further verifying the accuracy of the  order prediction. This work demonstrates that non-Gaussianity of the cosmic density field is simpler in Fourier space, and may facilitate the data analysis in the era of precision cosmology.',
+                      'title': 'Numerical investigation of non-Gaussianities in the phase and modulus of   density Fourier modes',
+                      'author': 'Qin, Jian; Pan, Jun; Yu, Yu; Zhang, Pengjie',
+                      'year': '2021',
+                      'doctype': 'eprint',
+                      'bibcode': '2021arXiv210911714Q',
+                      'doi': '10.1093/mnras/stac1454'}
+        # current match with new bibcode
+        matched_docs = [{'bibcode':'2022MNRAS.514.1548Q',
+                         'abstract':'We numerically investigate the non-Gaussianities in the late-time cosmological density field in Fourier space. We explore various statistics, including the two- and three-point probability distribution function (PDF) of phase and modulus, and their two- and three-point correlation function. Significant non-Gaussianity is observed for certain configurations. Comparing the measurement from simulation with the theoretical expansion prediction, we find that for (600 Mpc h<SUP>-1</SUP>)<SUP>3</SUP> volume, the $\\mathcal {O}(V^{-1/2})$ order term alone is sufficiently accurate to describe all the measured non-Gaussianities in not only the PDFs, but also the correlations. We also numerically find that the phase-modulus cross-correlation contributes $\\sim 50{{\\ \\rm per\\ cent}}$ to the bispectrum, further verifying the accuracy of the $\\mathcal {O}(V^{-1/2})$ order prediction. This work demonstrates that the non-Gaussianity of cosmic density field is simpler in Fourier space, and may facilitate the data analysis in the era of precision cosmology.',
+                         'author_norm':['Qin, J', 'Pan, J', 'Yu, Y', 'Zhang, P'],
+                         'doctype':'article',
+                         'doi': ['10.1093/mnras/stac1454'],
+                         'identifier':['2022MNRAS.tmp.1429J', '2021arXiv210911714Q', '10.1093/mnras/stac1454', '2022MNRAS.514.1548Q', 'arXiv:2109.11714'],
+                         'title':['Numerical investigation of non-Gaussianities in the phase and modulus of density Fourier modes'],
+                         'year':'2022'}]
+        # match it
+        matches = get_doi_match(source_doc['bibcode'], source_doc['abstract'], source_doc['title'],
+                              source_doc['author'], source_doc['year'], source_doc['doi'], matched_docs)
+        # current match the same as prev with the new bibcode
+        current_match = {'source_bibcode': '2021arXiv210911714Q',
+                         'matched_bibcode': '2022MNRAS.514.1548Q',
+                         'confidence': 1.982056,
+                         'matched': 1,
+                         'scores': {'abstract': 0.96, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1.0}}
+        self.assertEqual(len(matches), 1)
+        self.assertDictEqual(matches[0], current_match)

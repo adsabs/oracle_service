@@ -106,7 +106,7 @@ def get_solr_data_match(abstract, title, doctype, extra_filter):
         return [], '', 200
 
     try:
-        result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype,identifier')
+        result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype,doi,identifier')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -124,7 +124,7 @@ def get_solr_data_match_doi(doi, doctype):
     try:
         # query = 'doi:"{doi}" doctype:({doctype}) property:REFEREED'.format(doi=doi, doctype=doctype)
         query = 'doi:"{doi}" doctype:({doctype})'.format(doi=doi, doctype=doctype)
-        result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,identifier')
+        result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -143,7 +143,7 @@ def get_solr_data_match_thesis(author, year, doctype):
         author = author.split(',')
         author_norm = '{}, {}'.format(author[0].strip(), author[1].strip()[0]).lower()
         query = 'author_norm:"{author}" year:[* TO {year}] doctype:({doctype})'.format(author=author_norm, year=year, doctype=doctype)
-        result, status_code = get_solr_data(rows=3, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,identifier')
+        result, status_code = get_solr_data(rows=3, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr': '%d: %s' % (e.response.status_code, e.response.reason)}

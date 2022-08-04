@@ -10,7 +10,7 @@ class DocMatch(Base):
     __tablename__ = 'docmatch'
     source_bibcode = Column(String, primary_key=True)
     matched_bibcode = Column(String, primary_key=True)
-    confidence = Column(Float)
+    confidence = Column(Float, primary_key=True)
     date = Column(DateTime, default=func.now())
 
     def __init__(self, source_bibcode, matched_bibcode, confidence, date=None):

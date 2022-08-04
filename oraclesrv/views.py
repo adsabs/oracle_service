@@ -18,8 +18,7 @@ from oraclesrv.doc_matching import DocMatching, get_requests_params
 
 bp = Blueprint('oracle_service', __name__)
 
-# @bp.before_app_first_request
-def docmatch_model():
+def setup_extension():
     """
 
     :return:

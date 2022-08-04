@@ -66,7 +66,7 @@ class DocMatching(object):
         results, query, solr_status_code = get_solr_data_match_thesis(self.author, self.year, ' OR '.join(self.match_doctype))
         # if any records from solr
         if isinstance(results, list) and len(results) > 0:
-            match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, results)
+            match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)
             if not match:
                 current_app.logger.debug('No result from solr for thesis.')
                 comment += ' No result from solr for thesis.'
@@ -87,7 +87,7 @@ class DocMatching(object):
         # if any records from solr
         # compute the score, if score is 0 doi was wrong, so continue on to query using similar
         if isinstance(results, list) and len(results) > 0:
-            match = get_doi_match(self.source_bibcode, self.abstract, self.title, self.author, self.year, results)
+            match = get_doi_match(self.source_bibcode, self.abstract, self.title, self.author, self.year, self.doi, results)
             if match:
                 return self.create_and_return_response(match, query), ''
             else:
@@ -107,33 +107,38 @@ class DocMatching(object):
         """
         # query solr using similar with abstract
         results, query, solr_status_code = get_solr_data_match(self.abstract, self.title, self.match_doctype, self.extra_filter)
+        if solr_status_code != 200:
+            return self.create_and_return_response([], query, 'status code: %d'%solr_status_code)
 
         # if solr was not able to find any matches with abstract, attempt it again with title
-        if solr_status_code == 200:
-            # no result from solr
-            if len(results) == 0:
-                current_app.logger.debug('No result from solr with Abstract, trying Title.')
-                comment += ' No result from solr with Abstract, trying Title.'
-                results, query, solr_status_code = get_solr_data_match('', self.title, self.match_doctype, self.extra_filter)
-            # got records from solr, see if we can get a match
-            else:
-                match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, results)
-                if len(match) > 0:
-                    return self.create_and_return_response(match, query, comment)
-                # otherwise if no match with abstract, and we think we should have this in solr
-                # and thus have a much, try with title, this is the case when abstract has changed
-                # so drastically between the arXiv version and the publisher version
-                current_app.logger.debug('No matches with Abstract, trying Title.')
-                comment += ' No matches with Abstract, trying Title.'
-                results, query, solr_status_code = get_solr_data_match('', self.title, self.match_doctype, self.extra_filter)
+        # no result from solr
+        if len(results) == 0:
+            current_app.logger.debug('No result from solr with Abstract, trying Title.')
+            comment += ' No result from solr with Abstract, trying Title.'
+            results, query, solr_status_code = get_solr_data_match('', self.title, self.match_doctype, self.extra_filter)
+            if solr_status_code != 200:
+                return self.create_and_return_response([], query, 'status code: %d' % solr_status_code)
+        # got records from solr, see if we can get a match
+        else:
+            match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)
+            if len(match) > 0:
+                return self.create_and_return_response(match, query, comment)
+            # otherwise if no match with abstract, and we think we should have this in solr
+            # and thus have a much, try with title, this is the case when abstract has changed
+            # so drastically between the arXiv version and the publisher version
+            current_app.logger.debug('No matches with Abstract, trying Title.')
+            comment += ' No matches with Abstract, trying Title.'
+            results, query, solr_status_code = get_solr_data_match('', self.title, self.match_doctype, self.extra_filter)
+            if solr_status_code != 200:
+                return self.create_and_return_response([], query, 'status code: %d' % solr_status_code)
 
         # no result from title either
-        if len(results) == 0 and solr_status_code == 200:
+        if len(results) == 0 :
             current_app.logger.debug('No result from solr with Title.')
             comment += ' No result from solr with Title.'
             return self.create_and_return_response(match='', query=query, comment=comment)
 
-        match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, results)
+        match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)
         return self.create_and_return_response(match, query, comment)
 
     def process(self):
