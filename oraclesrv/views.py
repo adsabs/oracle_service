@@ -188,6 +188,10 @@ def docmatch():
 
     # start_time = time.time()
     results, status_code = DocMatching(payload).process()
+
+    current_app.logger.debug('docmatching results = %s'%json.dumps(results))
+    current_app.logger.debug('docmatching status_code = %d'%status_code)
+
     # current_app.logger.debug("Matched doc in {duration} ms".format(duration=(time.time() - start_time) * 1000))
     return return_response(results, status_code)
 
