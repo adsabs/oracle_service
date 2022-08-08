@@ -267,6 +267,6 @@ def pickle_docmatch():
     # to save a new model
     create_keras_model()
 
-    return return_response({'OK': 'objects saved'}, 200, 'text/plain; charset=UTF8')
+    return return_response({'OK': 'objects saved'}, 200)
 
 
