@@ -40,7 +40,7 @@ class TestDatabase(TestCaseDatabase):
             docmatch_records.append(docmatch_record)
 
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-        response = self.client.put('/update', data=json.dumps(docmatch_records), headers=headers)
+        response = self.client.put('/add', data=json.dumps(docmatch_records), headers=headers)
         self.assertEqual(response._status_code, 200)
         self.assertEqual(response.json['status'], 'updated db with new data successfully')
 

@@ -196,8 +196,8 @@ def docmatch():
     return return_response(results, status_code)
 
 @advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
-@bp.route('/update', methods=['PUT'])
-def update():
+@bp.route('/add', methods=['PUT'])
+def add():
     """
     """
     try:
