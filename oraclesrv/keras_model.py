@@ -154,3 +154,28 @@ def load_keras_model():
         current_app.logger.error('Exception: %s' % (str(e)))
         current_app.logger.error(traceback.format_exc())
         return None
+
+
+if __name__ == '__main__':      # pragma: no cover
+    PROJECT_HOME = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
+    sys.path.append(PROJECT_HOME)
+    import oraclesrv.app as app
+    current_app = app.create_app()
+
+    parser = argparse.ArgumentParser(description='Build/Save or Load Keras Model')
+    parser.add_argument('-a', '--action', help='action to take Create or Load the model')
+    args = parser.parse_args()
+    if args.action:
+        if args.action == 'Create':
+            create_keras_model()
+        elif args.action == 'Load':
+            keras_model = load_keras_model()
+            df = pd.DataFrame(columns=['abstract', 'title', 'author', 'year'])
+            datapoints = [[1.0, 0.98, 1, 1], [0.76, 0.98, 1, 1]]
+            for abstract, title, author, year in datapoints:
+                df = df.append({'abstract': abstract, 'title': title, 'author': author, 'year': year},
+                               ignore_index=True)
+            print(keras_model.model.predict(df))
+        else:
+            sys.exit(1)
+    sys.exit(0)
