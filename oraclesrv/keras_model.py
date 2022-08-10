@@ -79,7 +79,14 @@ class KerasModel(object):
         :param scores: list of scores for [abstract, title, author, year]
         :return:
         """
-        return float('%.7g' % (np.float32(np.take(self.model.predict([scores]), 0)).item()))
+        try:
+            current_app.logger.debug("Predict score ...")
+            start_time = time.time()
+            score = self.model.predict([scores])[0][0].item()
+            current_app.logger.debug("Predict score {duration} ms".format(duration=(time.time() - start_time) * 1000))
+            return float('%.7f' % score)
+        except:
+            return 0
 
     def save(self):
         """

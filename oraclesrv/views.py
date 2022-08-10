@@ -186,13 +186,13 @@ def docmatch():
     if not payload:
         return return_response(results={'error': 'no information received'}, status_code=400)
 
-    # start_time = time.time()
+    start_time = time.time()
     results, status_code = DocMatching(payload).process()
 
     current_app.logger.debug('docmatching results = %s'%json.dumps(results))
     current_app.logger.debug('docmatching status_code = %d'%status_code)
 
-    # current_app.logger.debug("Matched doc in {duration} ms".format(duration=(time.time() - start_time) * 1000))
+    current_app.logger.debug("Matched doc in {duration} ms".format(duration=(time.time() - start_time) * 1000))
     return return_response(results, status_code)
 
 @advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
