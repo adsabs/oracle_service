@@ -203,7 +203,7 @@ class test_oracle(TestCaseDatabase):
                              'topn(10, similar("Using Gaussian Process regression to analyze the Martian surface methane Tunable Laser Spectrometer (TLS) data reported by Webster (2018), we find that the TLS data, taken as a whole, are not statistically consistent with seasonal variability. The subset of data derived from an enrichment protocol of TLS, if considered in isolation, are equally consistent with either stochastic processes or periodic variability, but the latter does not favour seasonal variation.", input abstract, 20, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190802041G', 'matched_bibcode': '2020Icar..33613407G',
-                               'confidence': 0.9871657, 'matched': 1,
+                               'confidence': 0.9867799, 'matched': 1,
                                'scores': {'abstract': 0.9, 'title': 1.0, 'author': 1, 'year': 1}}])
 
     def test_matchdoc_endpoint_no_result_from_solr_metadata(self):
@@ -283,7 +283,7 @@ class test_oracle(TestCaseDatabase):
                              'doi:"10.1007/JHEP10(2019)244" doctype:(article OR inproceedings OR inbook)')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190804722C', 'matched_bibcode': '2019JHEP...10..244S',
-                               'confidence': 1.979027, 'matched': 1,
+                               'confidence': 1.977105, 'matched': 1,
                                'scores': {'abstract': 0.94, 'title': 0.99, 'author': 0.3, 'year': 1, 'doi': 1.0}}])
 
     def test_matchdoc_endpoint_with_doi_not_matching(self):
@@ -327,7 +327,7 @@ class test_oracle(TestCaseDatabase):
                              'doi:"10.1007/JHEP10(2019)032" doctype:(article OR inproceedings OR inbook)')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190500882A', 'matched_bibcode': '2019JHEP...06..121A',
-                               'confidence': 1.988394, 'matched': 1,
+                               'confidence': 1.988488, 'matched': 1,
                                'scores': {'abstract': 0.92, 'title': 0.99, 'author': 1, 'year': 1, 'doi': 1.0}}])
 
     def test_matchdoc_endpoint_with_accented_author(self):
@@ -369,7 +369,7 @@ class test_oracle(TestCaseDatabase):
                              'topn(10, similar("Entanglement, an essential feature of quantum theory that allows forinseparable quantum correlations to be shared between distant parties, is acrucial resource for quantum networks. Of particular importance is the abilityto distribute entanglement between remote objects that can also serve asquantum memories. This has been previously realized using systems such as warmand cold atomic vapours, individual atoms and ions, and defects in solid-statesystems. Practical communication applications require a combination of severaladvantageous features, such as a particular operating wavelength, highbandwidth and long memory lifetimes. Here we introduce a purely micromachinedsolid-state platform in the form of chip-based optomechanical resonators madeof nanostructured silicon beams. We create and demonstrate entanglement betweentwo micromechanical oscillators across two chips that are separated by 20centimetres. The entangled quantum state is distributed by an optical field ata designed wavelength near 1550 nanometres. Therefore, our system can bedirectly incorporated in a realistic fibre-optic quantum network operating inthe conventional optical telecommunication band. Our results are an importantstep towards the development of large-area quantum networks based on siliconphotonics.", input abstract, 49, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2017arXiv171011147R', 'matched_bibcode': '2018Natur.556..473R',
-                               'confidence': 0.9862269, 'matched': 1,
+                               'confidence': 0.9841709, 'matched': 1,
                                'scores': {'abstract': 0.91, 'title': 1.0, 'author': 0.62, 'year': 1}}])
 
     def test_matchdoc_endpoint_no_abstract(self):
@@ -456,7 +456,7 @@ class test_oracle(TestCaseDatabase):
                              'author_norm:"zheng, b" year:[* TO 2018] doctype:(phdthesis OR mastersthesis)')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2018arXiv180310259Z', 'matched_bibcode': '2017PhDT........67Z',
-                               'confidence': 0.9861221, 'matched': 1,
+                               'confidence': 0.9854979, 'matched': 1,
                                'scores': {'abstract': 0.89, 'title': 1.0, 'author': 1, 'year': 1}}])
             self.assertEqual(result['comment'],
                              'Matching doctype `phdthesis;mastersthesis`.')
