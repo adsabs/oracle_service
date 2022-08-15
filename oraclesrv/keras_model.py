@@ -27,7 +27,9 @@ class KerasModel(object):
     epoch = 100
     batch_size = 1
 
-    model_file = '/keras_model_files/4layer4dim.pkl'
+    model_file = os.path.dirname(__file__) + '/keras_model_files/4layer4dim'
+
+    model_loaded = False
 
     def train(self):
         """
@@ -80,50 +82,33 @@ class KerasModel(object):
         :return:
         """
         try:
+            if not self.model_loaded:
+                self.load()
+                self.model_loaded = True
             current_app.logger.debug("Predict score ...")
             start_time = time.time()
-            score = self.model.predict([scores])[0][0].item()
-            current_app.logger.debug("Predict score {duration} ms".format(duration=(time.time() - start_time) * 1000))
-            return float('%.7f' % score)
-        except:
+            prediction_score = self.model.predict([scores])[0][0].item()
+            current_app.logger.debug("Predict score took {duration} ms".format(duration=(time.time() - start_time) * 1000))
+            return float('%.7f' % prediction_score)
+        except Exception as e:
+            current_app.logger.error(str(e))
             return 0
 
     def save(self):
         """
-        save object to a pickle file
+        save model
 
         """
-        try:
-            with open(os.path.dirname(__file__) + self.model_file, "wb") as f:
-                pickler = pickle.Pickler(f, -1)
-                pickler.dump(self.model)
-                # pickler.dump(self.history)
-                # pickler.dump(self.test_loss)
-                # pickler.dump(self.test_accuracy)
-            current_app.logger.info("saved keras model in %s."%self.model_file)
-            return True
-        except Exception as e:
-            current_app.logger.error('Exception: %s' % (str(e)))
-            current_app.logger.error(traceback.format_exc())
-            return False
+        self.model.save(self.model_file)
 
     def load(self):
         """
 
         :return:
         """
-        try:
-            with open(os.path.dirname(__file__) + self.model_file, "rb") as f:
-                unpickler = pickle.Unpickler(f)
-                self.model = unpickler.load()
-                # self.history = unpickler.load()
-                # self.test_loss = unpickler.load()
-                # self.test_accuracy = unpickler.load()
-            current_app.logger.info("loaded keras model from %s."%self.model_file)
-            return self
-        except Exception as e:
-            current_app.logger.error('Exception: %s' % (str(e)))
-            current_app.logger.error(traceback.format_exc())
+        start_time = time.time()
+        self.model = keras.models.load_model(self.model_file)
+        current_app.logger.debug("Loading model took {duration} ms".format(duration=(time.time() - start_time) * 1000))
 
 
 def create_keras_model():
@@ -143,46 +128,3 @@ def create_keras_model():
         current_app.logger.error('Exception: %s' % (str(e)))
         current_app.logger.error(traceback.format_exc())
         return None
-
-def load_keras_model():
-    """
-    load the text model from pickle file
-
-    :return:
-    """
-    try:
-        start_time = time.time()
-        keras_model = KerasModel()
-        if not (keras_model.load()):
-            raise
-        current_app.logger.debug("keras model loaded in %s ms" % ((time.time() - start_time) * 1000))
-        return keras_model
-    except Exception as e:
-        current_app.logger.error('Exception: %s' % (str(e)))
-        current_app.logger.error(traceback.format_exc())
-        return None
-
-
-if __name__ == '__main__':      # pragma: no cover
-    PROJECT_HOME = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
-    sys.path.append(PROJECT_HOME)
-    import oraclesrv.app as app
-    current_app = app.create_app()
-
-    parser = argparse.ArgumentParser(description='Build/Save or Load Keras Model')
-    parser.add_argument('-a', '--action', help='action to take Create or Load the model')
-    args = parser.parse_args()
-    if args.action:
-        if args.action == 'Create':
-            create_keras_model()
-        elif args.action == 'Load':
-            keras_model = load_keras_model()
-            df = pd.DataFrame(columns=['abstract', 'title', 'author', 'year'])
-            datapoints = [[1.0, 0.98, 1, 1], [0.76, 0.98, 1, 1]]
-            for abstract, title, author, year in datapoints:
-                df = df.append({'abstract': abstract, 'title': title, 'author': author, 'year': year},
-                               ignore_index=True)
-            print(keras_model.model.predict(df))
-        else:
-            sys.exit(1)
-    sys.exit(0)

@@ -12,19 +12,11 @@ from adsmsg import DocMatchRecordList
 from google.protobuf.json_format import Parse, ParseError
 
 from oraclesrv.utils import get_solr_data_recommend, add_records, del_records
-from oraclesrv.keras_model import create_keras_model, load_keras_model
+from oraclesrv.keras_model import create_keras_model
 from oraclesrv.doc_matching import DocMatching, get_requests_params
 
 
 bp = Blueprint('oracle_service', __name__)
-
-def setup_extension():
-    """
-
-    :return:
-    """
-    if current_app.config['ORACLE_SERVICE_LIVE']:
-        current_app.extensions['docmatch_model'] = load_keras_model()
 
 def return_response(results, status_code):
     """

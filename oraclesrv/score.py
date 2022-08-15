@@ -16,6 +16,9 @@ from flask import current_app
 
 from oraclesrv.utils import get_a_record, add_a_record
 from oraclesrv.models import DocMatch
+from oraclesrv.keras_model import KerasModel
+
+confidence_model = KerasModel()
 
 DOI_CONFIDENCE_SCORE = 1
 
@@ -124,7 +127,7 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
                 get_author_score(author, match_author),
                 get_year_score(abs(int(match_year) - int(year)))
             ]
-            confidence = current_app.extensions['docmatch_model'].predict(scores)
+            confidence = confidence_model.predict(scores)
         else:
             scores = [
                 0,
