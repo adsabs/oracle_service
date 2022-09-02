@@ -89,7 +89,8 @@ class KerasModel(object):
             start_time = time.time()
             prediction_score = self.model.predict([scores])[0][0].item()
             current_app.logger.debug("Predict score took {duration} ms".format(duration=(time.time() - start_time) * 1000))
-            return float('%.7f' % prediction_score)
+            confidence_format = '%.{}f'.format(current_app.config['ORACLE_SERVICE_CONFIDENCE_SIGNIFICANT_DIGITS'])
+            return float(confidence_format % prediction_score)
         except Exception as e:
             current_app.logger.error(str(e))
             return 0
