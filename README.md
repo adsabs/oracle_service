@@ -53,13 +53,9 @@ produces the query and returns:
 
 `reader` is a 16-digit anonymous user id that gets extracted from the session id, hence for curl, for this endpoint, use your web API token.
 
-To call oracle service `/readhist` do
+Hence, to call oracle service `/readhist` do
 
     curl -H "Authorization: Bearer <your web API token>" -H "Content-Type: application/json" -X POST -d '{"function": "similar", "sort": "entry_date", "num_docs": 5, "cutoff_days": 5, "top_n_reads": 10}' https://api.adsabs.harvard.edu/v1/oracle/readhist
-
-and the API then responds in JSON with query that was executed and the list of bibcodes returned from the query.
-
-    {"query": "...", "bibcodes": "..."}
 
 
 ### Make a GET request for recommendation with the function and reader params:
