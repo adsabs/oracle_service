@@ -5,7 +5,7 @@ from flask import current_app
 import requests
 import flask
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import or_, and_, desc
+from sqlalchemy import or_, and_, desc, func
 from sqlalchemy.sql import exists
 from sqlalchemy.dialects.postgresql import insert
 
@@ -151,19 +151,18 @@ def get_solr_data_match_thesis(author, year, doctype):
 
     return result, query, status_code
 
-def add_a_record(docmatch):
+def add_a_record(protobuf_docmatch, source_bibcode_doctype=None):
     """
 
-    :param docmatch:
+    :param protobuf_docmatch:
+    :param source_bibcode_doctype:
     :return:
     """
-    # self.logger.debug("Added a `Reference` record successfully.")
-    # return reference.bibcode, reference.source_filename
-
     try:
         with current_app.session_scope() as session:
-            found = session.query(exists().where(and_(DocMatch.source_bibcode == docmatch.source_bibcode,
-                                                      DocMatch.matched_bibcode == docmatch.matched_bibcode,
+            docmatch = DocMatch(protobuf_docmatch['source_bibcode'], protobuf_docmatch['matched_bibcode'], protobuf_docmatch['confidence'], source_bibcode_doctype)
+            found = session.query(exists().where(and_(DocMatch.eprint_bibcode == docmatch.eprint_bibcode,
+                                                      DocMatch.pub_bibcode == docmatch.pub_bibcode,
                                                       DocMatch.confidence == docmatch.confidence))).scalar()
             if found:
                 return True, 'record already in db'
@@ -183,18 +182,17 @@ def get_a_record(source_bibcode, matched_bibcode):
     :return:
     """
     with current_app.session_scope() as session:
-        row = session.query(DocMatch).filter(or_(DocMatch.source_bibcode == source_bibcode,
-                                                 DocMatch.matched_bibcode == source_bibcode,
-                                                 DocMatch.source_bibcode == matched_bibcode,
-                                                 DocMatch.matched_bibcode == matched_bibcode)).order_by(desc(DocMatch.confidence)).first()
+        docmatch = DocMatch(source_bibcode, matched_bibcode, confidence=-1)
+        row = session.query(DocMatch).filter(or_(DocMatch.eprint_bibcode == docmatch.eprint_bibcode,
+                                                 DocMatch.pub_bibcode == docmatch.pub_bibcode)).order_by(desc(DocMatch.confidence)).first()
         if row:
             current_app.logger.debug("Fetched a record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
             return row.toJSON()
 
-    current_app.logger.error("Failed to fetched a record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
+    current_app.logger.error("No record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
     return None
 
-def add_records(docmatches):
+def add_records(protobuf_docmatches):
     """
     upserts records into db
 
@@ -202,10 +200,12 @@ def add_records(docmatches):
     :return: success boolean, plus a status text for retuning error message, if any, to the calling program
     """
     rows = []
-    for doc in docmatches.docmatch_records:
-        rows.append({"source_bibcode":doc.source_bibcode,
-                     "matched_bibcode": doc.matched_bibcode,
-                     "confidence": doc.confidence})
+    for protobuf_docmatch in protobuf_docmatches.docmatch_records:
+        # convert to DocMatch so that eprint and pub bibcodes can be identified
+        docmatch = DocMatch(protobuf_docmatch.source_bibcode, protobuf_docmatch.matched_bibcode, protobuf_docmatch.confidence)
+        rows.append({"eprint_bibcode":docmatch.eprint_bibcode,
+                     "pub_bibcode": docmatch.pub_bibcode,
+                     "confidence": docmatch.confidence})
 
     if len(rows) > 0:
         table = DocMatch.__table__
@@ -240,9 +240,11 @@ def del_records(docmatches):
         with current_app.session_scope() as session:
             count = 0
             for doc in docmatches.docmatch_records:
-                count += session.query(DocMatch).filter(and_(DocMatch.source_bibcode == doc.source_bibcode,
-                                                             DocMatch.matched_bibcode == doc.matched_bibcode,
-                                                             DocMatch.confidence == doc.confidence)).delete(synchronize_session=False)
+                # convert to DocMatch so that eprint and pub bibcodes can be identified
+                docmatch = DocMatch(doc.source_bibcode, doc.matched_bibcode, doc.confidence)
+                count += session.query(DocMatch).filter(and_(DocMatch.eprint_bibcode == docmatch.eprint_bibcode,
+                                                             DocMatch.pub_bibcode == docmatch.pub_bibcode,
+                                                             DocMatch.confidence == docmatch.confidence)).delete(synchronize_session=False)
             session.commit()
     except SQLAlchemyError as e:
         session.rollback()
@@ -250,4 +252,28 @@ def del_records(docmatches):
         return False, 'SQLAlchemy: ' + str(e)
     return True, count, 'removed ' + str(count) + ' records of ' + str(len(docmatches.docmatch_records)) + ' requested'
 
+def query_docmatch(params):
+    """
 
+    :param params:
+    :return:
+    """
+    try:
+        with current_app.session_scope() as session:
+            # setup subquery to extract the published records with the highest confidence
+            highest_confidence = session.query(DocMatch.pub_bibcode, func.max(DocMatch.confidence).label('confidence')) \
+                .group_by(DocMatch.pub_bibcode).distinct().subquery()
+            # get full records with the highest confidence
+            result = session.query(DocMatch.eprint_bibcode, DocMatch.pub_bibcode, DocMatch.confidence, DocMatch.date) \
+                .filter(and_(DocMatch.pub_bibcode == highest_confidence.c.pub_bibcode,
+                             DocMatch.confidence == highest_confidence.c.confidence,
+                             DocMatch.date >= params['date_cutoff'])) \
+                .limit(params['rows']).offset(params['start']).all()
+            if len(result) > 0:
+                # remove the last field, which is datetime, is not needed to be returned
+                result = [r[0:3] for r in result]
+            return result, 200
+        return [], 200
+    except SQLAlchemyError as e:
+        current_app.logger.error('SQLAlchemy: ' + str(e))
+        return [], 404

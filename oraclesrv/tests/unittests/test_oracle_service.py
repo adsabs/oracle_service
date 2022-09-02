@@ -155,9 +155,9 @@ class test_oracle(TestCaseDatabase):
             account = get_user_info_from_adsws('???')
             self.assertEqual(account, None)
 
-    def test_matchdoc_endpoint_metadata(self):
+    def test_docmatch_endpoint_metadata(self):
         """
-        Tests matchdoc endpoint using metadata abstract/title to query solr
+        Tests docmatch endpoint using metadata abstract/title to query solr
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
@@ -206,9 +206,9 @@ class test_oracle(TestCaseDatabase):
                                'confidence': 0.9867799, 'matched': 1,
                                'scores': {'abstract': 0.9, 'title': 1.0, 'author': 1, 'year': 1}}])
 
-    def test_matchdoc_endpoint_no_result_from_solr_metadata(self):
+    def test_docmatch_endpoint_no_result_from_solr_metadata(self):
         """
-        Tests matchdoc endpoint having no result from solr when solr queried with abstract/title
+        Tests docmatch endpoint having no result from solr when solr queried with abstract/title
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
@@ -240,9 +240,9 @@ class test_oracle(TestCaseDatabase):
             self.assertEqual(result['no match'],
                              'no document was found in solr matching the request.')
 
-    def test_matchdoc_endpoint_with_doi_and_collaboration(self):
+    def test_docmatch_endpoint_with_doi_and_collaboration(self):
         """
-        Tests matchdoc endpoint having doi and being a collaboration
+        Tests docmatch endpoint having doi and being a collaboration
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
@@ -283,12 +283,12 @@ class test_oracle(TestCaseDatabase):
                              'doi:"10.1007/JHEP10(2019)244" doctype:(article OR inproceedings OR inbook)')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190804722C', 'matched_bibcode': '2019JHEP...10..244S',
-                               'confidence': 1.977105, 'matched': 1,
+                               'confidence': 1.9771051, 'matched': 1,
                                'scores': {'abstract': 0.94, 'title': 0.99, 'author': 0.3, 'year': 1, 'doi': 1.0}}])
 
-    def test_matchdoc_endpoint_with_doi_not_matching(self):
+    def test_docmatch_endpoint_with_doi_not_matching(self):
         """
-        Tests matchdoc endpoint having erroneous doi
+        Tests docmatch endpoint having erroneous doi
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
@@ -330,9 +330,9 @@ class test_oracle(TestCaseDatabase):
                                'confidence': 1.988488, 'matched': 1,
                                'scores': {'abstract': 0.92, 'title': 0.99, 'author': 1, 'year': 1, 'doi': 1.0}}])
 
-    def test_matchdoc_endpoint_with_accented_author(self):
+    def test_docmatch_endpoint_with_accented_author(self):
         """
-        Tests matchdoc endpoint having accented author
+        Tests docmatch endpoint having accented author
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
@@ -372,7 +372,7 @@ class test_oracle(TestCaseDatabase):
                                'confidence': 0.9841709, 'matched': 1,
                                'scores': {'abstract': 0.91, 'title': 1.0, 'author': 0.62, 'year': 1}}])
 
-    def test_matchdoc_endpoint_no_abstract(self):
+    def test_docmatch_endpoint_no_abstract_solr_record(self):
         """
         when there is no abstract that title is quarried
         """
@@ -391,7 +391,6 @@ class test_oracle(TestCaseDatabase):
                                                u'response': {u'start': 0,
                                                              u'numFound': 1,
                                                              u'docs': [{"identifier":["2020arXiv200210896G", "2020A&A...635A.193G", "10.1051/0004-6361/202037526", "arXiv:2002.10896", "10.1051/0004-6361/202037526", "2020arXiv200210896G"],
-                                                                        "abstract":"In light of substantial new discoveries of hot subdwarfs by ongoing spectroscopic surveys and the availability of new all-sky data from ground-based photometric surveys and the Gaia mission Data Release 2, we compiled an updated catalogue of the known hot subdwarf stars. The catalogue contains 5874 unique sources including 528 previously unknown hot subdwarfs and provides multi-band photometry, astrometry from Gaia, and classifications based on spectroscopy and colours. This new catalogue provides atmospheric parameters of 2187 stars and radial velocities of 2790 stars from the literature. Using colour, absolute magnitude, and reduced proper motion criteria, we identified 268 previously misclassified objects, most of which are less luminous white dwarfs or more luminous blue horizontal branch and main-sequence stars. <P />The catalogues are only available at the CDS via anonymous ftp to <A href=\"http://cdsarc.u-strasbg.fr/\">http://cdsarc.u-strasbg.fr</A> (ftp://130.79.128.5) or via <A href=\"http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193\">http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193</A>",
                                                                         "year":"2020",
                                                                         "bibcode":"2020A&A...635A.193G",
                                                                         "doctype":"article",
@@ -402,21 +401,21 @@ class test_oracle(TestCaseDatabase):
             data = {"bibcode": "2020arXiv200210896G",
                     "year": "2020",
                     "title": "Population of hot subdwarf stars studied with Gaia III. Catalogue of\n  known hot subdwarf stars: Data Release 2",
-                    "abstract": "Not Available <P/>",
+                    "abstract": "In light of substantial new discoveries of hot subdwarfs by ongoing spectroscopic surveys and the availability of new all-sky data from ground-based photometric surveys and the Gaia mission Data Release 2, we compiled an updated catalogue of the known hot subdwarf stars. The catalogue contains 5874 unique sources including 528 previously unknown hot subdwarfs and provides multi-band photometry, astrometry from Gaia, and classifications based on spectroscopy and colours. This new catalogue provides atmospheric parameters of 2187 stars and radial velocities of 2790 stars from the literature. Using colour, absolute magnitude, and reduced proper motion criteria, we identified 268 previously misclassified objects, most of which are less luminous white dwarfs or more luminous blue horizontal branch and main-sequence stars. <P />The catalogues are only available at the CDS via anonymous ftp to <A href=\'http://cdsarc.u-strasbg.fr/\'>http://cdsarc.u-strasbg.fr</A> (ftp://130.79.128.5) or via <A href=\'http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193\'>http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193</A>",
                     "author": "Geier, S.",
                     "doctype":"eprint"}
             r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
-                             'topn(10, similar("Population of hot subdwarf stars studied with Gaia III Catalogue of  known hot subdwarf stars Data Release 2", input title, 16, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
+                             'topn(10, similar("In light of substantial new discoveries of hot subdwarfs by ongoing spectroscopic surveys and the availability of new all-sky data from ground-based photometric surveys and the Gaia mission Data Release 2, we compiled an updated catalogue of the known hot subdwarf stars. The catalogue contains 5874 unique sources including 528 previously unknown hot subdwarfs and provides multi-band photometry, astrometry from Gaia, and classifications based on spectroscopy and colours. This new catalogue provides atmospheric parameters of 2187 stars and radial velocities of 2790 stars from the literature. Using colour, absolute magnitude, and reduced proper motion criteria, we identified 268 previously misclassified objects, most of which are less luminous white dwarfs or more luminous blue horizontal branch and main-sequence stars. <P />The catalogues are only available at the CDS via anonymous ftp to <A href=\'http://cdsarc.u-strasbg.fr/\'>http://cdsarc.u-strasbg.fr</A> (ftp://130.79.128.5) or via <A href=\'http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193\'>http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193</A>", input abstract, 41, 1, 1)) doctype:(article OR inproceedings OR inbook) property:REFEREED')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2020arXiv200210896G', 'matched_bibcode': '2020A&A...635A.193G',
-                               'confidence': 0.99, 'matched': 1,
-                               'scores': {'abstract': 0, 'title': 0.99, 'author': 1, 'year': 1}}])
+                               'confidence': 0.997, 'matched': 1,
+                               'scores': {'abstract': None, 'title': 0.99, 'author': 1, 'year': 1}}])
 
-    def test_matchdoc_endpoint_matching_thesis(self):
+    def test_docmatch_endpoint_matching_thesis(self):
         """
-        Tests matchdoc endpoint having thesis
+        Tests docmatch endpoint having thesis
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
@@ -461,9 +460,9 @@ class test_oracle(TestCaseDatabase):
             self.assertEqual(result['comment'],
                              'Matching doctype `phdthesis;mastersthesis`.')
 
-    def test_matchdoc_endpoint_no_result_from_solr_thesis(self):
+    def test_docmatch_endpoint_no_result_from_solr_thesis(self):
         """
-        Tests matchdoc endpoint having no result from solr when solr queried with thesis information
+        Tests docmatch endpoint having no result from solr when solr queried with thesis information
         """
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             get_mock.return_value = mock_response = mock.Mock()
@@ -505,9 +504,9 @@ class test_oracle(TestCaseDatabase):
         self.assertEqual(clean_data(abstract), "An investigation")
 
 
-    def test_matchdoc_endpoint_matched_with_no_abstract(self):
+    def test_docmatch_endpoint_no_abstract_source(self):
         """
-        Tests matchdoc endpoint using metadata abstract/title to query solr, when there is no abstract, and we found a match
+        Tests docmatch endpoint using metadata abstract/title to query solr, when there is no abstract, and we found a match
         """
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
@@ -543,7 +542,7 @@ class test_oracle(TestCaseDatabase):
                                                }
             # this bibcode actually does have abstract, for test purposes, for testing with no abstract and match
             data = {"bibcode":"2019arXiv190802041G",
-                    "abstract":"Not Available <P/>",
+                    "abstract":"",
                     "title":"Statistical analysis of Curiosity data shows no evidence for a strong seasonal cycle of Martian methane",
                     "author":"Gillen, Ed; Rimmer, Paul B; Catling, David C",
                     "year":"2020",
@@ -555,7 +554,22 @@ class test_oracle(TestCaseDatabase):
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190802041G', 'matched_bibcode': '2020Icar..33613407G',
                                'confidence': 1.0, 'matched': 1,
-                               'scores': {'abstract': 0, 'title': 1.0, 'author': 1, 'year': 1}}])
+                               'scores': {'abstract': None, 'title': 1.0, 'author': 1, 'year': 1}}])
+
+
+    def test_query_endpoint(self):
+        """
+        Test query endpoint with and without params passing in
+        :return:
+        """
+        r = self.client.post(path='/query')
+        result = json.loads(r.data)
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': []})
+
+        # set the rows to a larger number and see that it is reset
+        r = self.client.post(path='/query', data=json.dumps({'rows': 3000, 'start': 0}))
+        result = json.loads(r.data)
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': []})
 
 
 if __name__ == "__main__":

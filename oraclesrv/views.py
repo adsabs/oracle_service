@@ -8,10 +8,13 @@ from flask_discoverer import advertise
 import json
 import time
 
+from adsmutils import get_date
+from datetime import timedelta
+
 from adsmsg import DocMatchRecordList
 from google.protobuf.json_format import Parse, ParseError
 
-from oraclesrv.utils import get_solr_data_recommend, add_records, del_records
+from oraclesrv.utils import get_solr_data_recommend, add_records, del_records, query_docmatch
 from oraclesrv.keras_model import create_keras_model
 from oraclesrv.doc_matching import DocMatching, get_requests_params
 
@@ -247,10 +250,9 @@ def delete():
     current_app.logger.info('failed to delete from db %d bibcodes' % (len(payload)))
     return return_response({'error': text}, 400)
 
-
 @advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
-@bp.route('/pickle_docmatch', methods=['PUT'])
-def pickle_docmatch():
+@bp.route('/keras_model', methods=['PUT'])
+def keras_model():
     """
     endpoint to be called locally only whenever the models needs be changed
 
@@ -261,4 +263,46 @@ def pickle_docmatch():
 
     return return_response({'OK': 'objects saved'}, 200)
 
+@advertise(scopes=[], rate_limit=[1000, 3600 * 24])
+@bp.route('/query', methods=['POST'])
+def query():
+    """
+
+    :return:
+    """
+    current_app.logger.debug('received request to query database')
+
+    try:
+        payload = request.get_json(force=True)  # post data in json
+    except:
+        payload = dict(request.form)  # post data in form encoding
+
+    # initialize params in payload if missing
+    # rows: number of records to return
+    max_rows = current_app.config['ORACLE_SERVICE_QUERY_MAX_RECORDS']
+    if 'rows' not in payload:
+        payload['rows'] = max_rows
+    elif payload['rows'] > max_rows:
+        payload['rows'] = max_rows
+    # start: offset to table's rows
+    if 'start' not in payload:
+        payload['start'] = 0
+    # number of days from today to return records
+    if 'days' not in payload:
+        payload['date_cutoff'] = get_date('1972/01/01 00:00:00')
+    else:
+        payload['date_cutoff'] = get_date() - timedelta(days=int(payload['days']))
+
+    start_time = time.time()
+    results, status_code = query_docmatch(payload)
+
+    current_app.logger.debug('docmatching results = %s'%json.dumps(results))
+    current_app.logger.debug('docmatching status_code = %d'%status_code)
+
+    current_app.logger.debug("Matched doc in {duration} ms".format(duration=(time.time() - start_time) * 1000))
+
+    # before returning convert the date to a string
+    # otherwise gets JSON serializable error
+    payload['date_cutoff'] = str(payload['date_cutoff'])
+    return return_response({'params':payload, 'results':results}, status_code)
 

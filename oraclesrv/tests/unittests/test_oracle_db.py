@@ -3,23 +3,26 @@ project_home = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..
 if project_home not in sys.path:
     sys.path.insert(0, project_home)
 
+import unittest
 import json
+
+from adsmutils import get_date
 
 import oraclesrv.app as app
 from oraclesrv.tests.unittests.base import TestCaseDatabase
-from oraclesrv.utils import get_a_record, del_records, add_a_record
+from oraclesrv.utils import get_a_record, del_records, add_a_record, query_docmatch
 from oraclesrv.score import get_matches, get_doi_match
-from oraclesrv.models import DocMatch
+
 
 
 class TestDatabase(TestCaseDatabase):
 
     def create_app(self):
         '''Start the wsgi application'''
-        a = app.create_app(**{
+        self.app = app.create_app(**{
             'SQLALCHEMY_DATABASE_URI': self.postgresql_url,
         })
-        return a
+        return self.app
 
     def add_stub_data(self):
         """
@@ -28,8 +31,8 @@ class TestDatabase(TestCaseDatabase):
         """
         stub_data = [
                         ('2021arXiv210312030S', '2021CSF...15311505S', 0.9829099),
-                        ('2018ConPh..59...16H', '2018ConPh..59...16H', 0.9877064),
-                        ('2022NuPhB.98015830S', '2022NuPhB.98015830S', 1.97300124),
+                        ('2017arXiv171111082H', '2018ConPh..59...16H', 0.9877064),
+                        ('2018arXiv181105526S', '2022NuPhB.98015830S', 1.97300124),
         ]
 
         docmatch_records = []
@@ -54,8 +57,8 @@ class TestDatabase(TestCaseDatabase):
 
         # query for a record that exists
         record = get_a_record('2021arXiv210312030S', '2021CSF...15311505S')
-        self.assertEqual(record['source_bibcode'], '2021arXiv210312030S')
-        self.assertEqual(record['matched_bibcode'], '2021CSF...15311505S')
+        self.assertEqual(record['eprint_bibcode'], '2021arXiv210312030S')
+        self.assertEqual(record['pub_bibcode'], '2021CSF...15311505S')
         self.assertEqual(record['confidence'], 0.9829099)
 
         # query for a record that does not exits
@@ -75,11 +78,11 @@ class TestDatabase(TestCaseDatabase):
                 "matched_bibcode": "2021CSF...15311505S",
                 "confidence": 0.9829099
             }, {
-                "source_bibcode": "2018ConPh..59...16H",
+                "source_bibcode": "2017arXiv171111082H",
                 "matched_bibcode": "2018ConPh..59...16H",
                 "confidence": 0.9877064
             }, {
-                "source_bibcode": "2022NuPhB.98015830S",
+                "source_bibcode": "2018arXiv181105526S",
                 "matched_bibcode": "2022NuPhB.98015830S",
                 "confidence": 1.97300124
             }
@@ -183,7 +186,7 @@ class TestDatabase(TestCaseDatabase):
         prev_match = {'source_bibcode': '2021arXiv210911714Q',
                       'matched_bibcode': '2022MNRAS.tmp.1429J',
                       'confidence': 1.982056}
-        add_a_record(DocMatch(prev_match['source_bibcode'], prev_match['matched_bibcode'], prev_match['confidence']))
+        add_a_record(prev_match)
 
         # current source with new bibcode, having old bibcode in identifier
         source_doc = {'abstract': 'We numerically investigate non-Gaussianities in the late-time cosmological density field in Fourier space. We explore various statistics, including the two-point and three-point probability distribution function (PDF) of phase and modulus, and two three-point correlation function of of phase and modulus. We detect significant non-Gaussianity for certain configurations. We compare the simulation results with the theoretical expansion series of {2007ApJS..170....1M}. We find that the  order term alone is sufficiently accurate to describe all the measured non-Gaussianities in not only the PDFs, but also the correlations. We also numerically find that the phase-modulus cross-correlation contributes  to the bispectrum, further verifying the accuracy of the  order prediction. This work demonstrates that non-Gaussianity of the cosmic density field is simpler in Fourier space, and may facilitate the data analysis in the era of precision cosmology.',
@@ -213,3 +216,56 @@ class TestDatabase(TestCaseDatabase):
                          'scores': {'abstract': 0.96, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1.0}}
         self.assertEqual(len(matches), 1)
         self.assertDictEqual(matches[0], current_match)
+
+    def test_query(self):
+        """
+
+        :return:
+        """
+        # add records to db, including multiple matches
+        matches = [
+            {'source_bibcode': '2021arXiv210911714Q', 'matched_bibcode': '2022MNRAS.tmp.1429J', 'confidence': 1.982056},
+            {'source_bibcode': '2021arXiv210312030S', 'matched_bibcode': '2021CSF...15311505S', 'confidence': 0.9829099},
+            {'source_bibcode': '2017arXiv171111082H', 'matched_bibcode': '2018ConPh..59...16H', 'confidence': 0.9877064},
+            {'source_bibcode': '2018arXiv181105526S', 'matched_bibcode': '2022NuPhB.98015830S', 'confidence': 1.97300124},
+            {'source_bibcode': '2022arXiv220806634B', 'matched_bibcode': '2022MNRAS.tmp.2065R', 'confidence': 0.9863155},
+            {'source_bibcode': '2022arXiv220807057B', 'matched_bibcode': '2021JHEP...10..058B', 'confidence': 0.7762166},
+            {'source_bibcode': '2021arXiv210614498B', 'matched_bibcode': '2021JHEP...10..058B', 'confidence': 0.9938304},
+            {'source_bibcode': '2022arXiv220806634R', 'matched_bibcode': '2022MNRAS.tmp.2065R', 'confidence': 0.994127},
+            {'source_bibcode': '2022arXiv220700058R', 'matched_bibcode': '2022ApJ...935...54R', 'confidence': 0.9939186},
+            {'source_bibcode': '2022arXiv220702921C', 'matched_bibcode': '2022ApJ...935...44C', 'confidence': 0.9927035},
+        ]
+
+        for match in matches:
+            add_a_record(match)
+
+        all_with_high_confidence = [
+            ('2021arXiv210911714Q', '2022MNRAS.tmp.1429J', 1.982056),
+            ('2021arXiv210312030S', '2021CSF...15311505S', 0.9829099),
+            ('2017arXiv171111082H', '2018ConPh..59...16H', 0.9877064),
+            ('2018arXiv181105526S', '2022NuPhB.98015830S', 1.97300124),
+            ('2021arXiv210614498B', '2021JHEP...10..058B', 0.9938304),
+            ('2022arXiv220806634R', '2022MNRAS.tmp.2065R', 0.994127),
+            ('2022arXiv220700058R', '2022ApJ...935...54R', 0.9939186),
+            ('2022arXiv220702921C', '2022ApJ...935...44C', 0.9927035),
+        ]
+
+        # test all unique records are returned
+        result, status_code = query_docmatch({'start': 0, 'rows':10, 'date_cutoff': get_date('1972/01/01 00:00:00')})
+        self.assertEqual(status_code, 200)
+        self.assertEqual(result, all_with_high_confidence)
+
+        # now test returning a page a time
+        for i in range(0, len(matches), 2):
+            result, status_code = query_docmatch({'start': i, 'rows': 2, 'date_cutoff': get_date('1972/01/01 00:00:00')})
+            self.assertEqual(status_code, 200)
+            self.assertEqual(result, all_with_high_confidence[i:i+2])
+
+        # do one iteration and see it returns 0 records
+        result, status_code = query_docmatch({'start': len(matches), 'rows': 2, 'date_cutoff': get_date('1972/01/01 00:00:00')})
+        self.assertEqual(status_code, 200)
+        self.assertEqual(result, [])
+
+
+if __name__ == "__main__":
+    unittest.main()

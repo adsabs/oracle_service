@@ -2,6 +2,7 @@ from flask import current_app
 
 from oraclesrv.utils import get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_thesis
 from oraclesrv.score import clean_data, get_matches, encode_author, format_author, get_doi_match
+from oraclesrv.utils import add_a_record
 
 def get_requests_params(payload, param, default_value=None, default_type=str):
     """
@@ -141,14 +142,30 @@ class DocMatching(object):
         match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)
         return self.create_and_return_response(match, query, comment)
 
+    def save_match(self, result):
+        """
+
+        :param result:
+        :return:
+        """
+        if result and result[0].get('match', []):
+            the_match = result[0]['match']
+            # if there is only one record, and the confidence is high enough to be considered a match
+            if len(the_match) == 1 and the_match[0]['matched'] == 1:
+                add_a_record({'source_bibcode': the_match[0]['source_bibcode'],
+                              'matched_bibcode': the_match[0]['matched_bibcode'],
+                              'confidence': the_match[0]['confidence']},
+                             source_bibcode_doctype=self.doctype)
+
     def process(self):
         """
 
         :return:
         """
-        if not (self.abstract and self.title and self.author and self.year and self.doctype):
+        # need either abstract or title, with author and year and doctype
+        if not ((self.abstract or self.title) and self.author and self.year and self.doctype):
             current_app.logger.error('missing required parameter(s)')
-            results = {'error': 'all five parameters are required: `abstract`, `title`, `author`, `year`,  and `doctype`'}
+            results = {'error': 'the following parameters are required: `abstract` or `title`, `author`, `year`,  and `doctype`'}
             status_code = 400
             return results, status_code
 
@@ -164,10 +181,16 @@ class DocMatching(object):
                 status_code = 400
                 return results, status_code
         else:
-            comment = 'Matching doctype `%s`.'%';'.join(self.match_doctype)
+            if isinstance(self.match_doctype, list):
+                comment = 'Matching doctype `%s`.'%';'.join(self.match_doctype)
+            else:
+                comment = 'Matching doctype `%s`.'%(self.match_doctype)
+
             is_thesis = any(input in self.match_doctype for input in current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get('thesis'))
             if is_thesis:
-                return self.process_thesis(comment)
+                result = self.process_thesis(comment)
+                self.save_match(result)
+                return result
 
         self.abstract = clean_data(self.abstract)
         self.title = clean_data(self.title)
@@ -178,9 +201,12 @@ class DocMatching(object):
         if self.doi:
             result, comment = self.query_doi(comment)
             if result:
+                self.save_match(result)
                 return result
 
         current_app.logger.debug('with parameters: abstract={abstract}, title={title}, author={author}, year={year}, doctype={doctype}'.format(
             abstract=self.abstract[:100]+'...', title=self.title, author=self.author, year=self.year, doctype=self.doctype))
 
-        return self.query_abstract_or_title(comment)
+        result = self.query_abstract_or_title(comment)
+        self.save_match(result)
+        return result
