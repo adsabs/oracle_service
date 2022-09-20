@@ -3,7 +3,6 @@ from builtins import chr
 from builtins import map
 from builtins import zip
 from builtins import range
-from past.utils import old_div
 
 import sys
 import re
@@ -32,8 +31,8 @@ def count_matching_authors(ref_authors, ads_authors):
     try:
         ref_authors = ref_authors.split(';')
         ref_authors_lastname = [a.split(",")[0].strip() for a in ref_authors]
-        ref_authors_firstinitial = [a.split(",")[1].strip()[0] for a in ref_authors]
-        ref_authors_norm = [last+', '+ first for last,first in zip(ref_authors_lastname,ref_authors_firstinitial)]
+        ref_authors_first_initial = [a.split(",")[1].strip()[0] if len(a.split(',')) >= 2 else '' for a in ref_authors]
+        ref_authors_norm = [(last+', '+ first).strip() for last,first in zip(ref_authors_lastname,ref_authors_first_initial)]
 
         for author in ads_authors:
             if author in ref_authors_norm:
@@ -45,7 +44,7 @@ def count_matching_authors(ref_authors, ads_authors):
             if author not in ads_authors:
                 missing_in_ads += 1
 
-        first_author_missing = ads_authors[0] not in ref_authors_norm
+        first_author_missing = fuzz.partial_ratio(ads_authors[0], ref_authors_norm[0]) < current_app.config['ORACLE_SERVICE_FIRST_AUTHOR_MATCH_THRESHOLD']
     except:
         pass
 
@@ -94,6 +93,16 @@ def get_year_score(diff):
         return 0.25
     return 0
 
+def get_refereed_score(is_refereed):
+    """
+
+    :param is_refereed:
+    :return:
+    """
+    if is_refereed:
+        return current_app.config['ORACLE_SERVICE_REFEREED_SCORE']
+    return current_app.config['ORACLE_SERVICE_NOT_REFEREED_SCORE']
+
 re_match_arXiv = re.compile(r'(\d\d\d\darXiv.*)')
 def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs):
     """
@@ -107,8 +116,6 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
     :param matched_docs:
     :return:
     """
-    doi_confidence_score = current_app.config['ORACLE_SERVICE_DOI_CONFIDENCE_SCORE']
-
     results = []
     for doc in matched_docs:
         match_bibcode = doc.get('bibcode', '')
@@ -118,15 +125,13 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
         match_year = doc.get('year', None)
         match_doi = doc.get('doi', [])
         match_identifier = doc.get('identifier', [])
-
-        if len(abstract) > 0 and len(match_abstract) > 0:
+        if len(abstract) > 0 and not abstract.lower().startswith('not available') and len(match_abstract) > 0:
             scores = [
                 fuzz.token_set_ratio(abstract, match_abstract) / 100.0,
                 fuzz.partial_ratio(title, match_title) / 100.0,
                 get_author_score(author, match_author),
                 get_year_score(abs(int(match_year) - int(year)))
             ]
-            confidence = confidence_model.predict(scores)
         else:
             scores = [
                 None,
@@ -134,39 +139,50 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
                 get_author_score(author, match_author),
                 get_year_score(abs(int(match_year) - int(year)))
             ]
-            # not many records with no abstract, hence not possible to train a network for when there are only
-            # three scores, the best approach is to take the sum of weighted similarity scores for the three scores
-            # with the author weighted more importantly
-            confidence = round(scores[1] * 0.3 + scores[2] * 0.4 + scores[3] * 0.3, 7)
+        # include doi if thre is a match
+        if match_doi and doi:
+            dois_matches = any(x in doi for x in match_doi)
+        else:
+            dois_matches = False
+        if dois_matches:
+            scores = scores + [1]
 
-        # even if confidence is very low, but doi matches, move it through
-        if confidence < 0.01 and doi not in match_doi:
-            continue
+        confidence_format = '%.{}f'.format(current_app.config['ORACLE_SERVICE_CONFIDENCE_SIGNIFICANT_DIGITS'])
+        # if we are matching with eprints, consider eprint a refereed manuscript
+        # else check the flag for refereed in the property field
+        # if not refereed we want to penalize the confidence score
+        match_refereed = True if 'eprint' in doc.get('doctype') else (True if 'REFEREED' in doc.get('property', []) else False)
+        confidence = float(confidence_format % (confidence_model.predict(scores) * get_refereed_score(match_refereed)))
+ 
         # see if either of these bibcodes have already been matched
         prev_match = get_a_record(source_bibcode, match_bibcode)
+
+        # even if confidence is low, doi does not matches, and there is no prev matches, skip it
+        if confidence < 0.01 and not dois_matches and not prev_match:
+            continue
+
         if prev_match:
             prev_bibcodes = [prev_match['eprint_bibcode'], prev_match['pub_bibcode']]
             # if prev record is the current match and the bibcode has changed in the meantime
             if prev_match['eprint_bibcode'] in match_identifier or prev_match['pub_bibcode'] in match_identifier:
                 prev_bibcodes += match_identifier
 
-            # current confidence is without the doi score, hence if the prev match was saved with doi score take it out
-            prev_confidence = prev_match['confidence'] if prev_match['confidence'] < doi_confidence_score else \
-                              prev_match['confidence'] - doi_confidence_score
-
+            prev_confidence = prev_match['confidence']
             # is it the same record being matched again
-            if source_bibcode in prev_bibcodes and match_bibcode in prev_bibcodes and abs(prev_confidence - confidence) < 0.1:
+            if source_bibcode in prev_bibcodes and match_bibcode in prev_bibcodes and prev_confidence >= confidence:
                 # return the confidence that is recorded in db
                 confidence = prev_confidence
-
             # if there was a match, but different from the current match, see if the confidence is higher then the current match
             # if yes, ignore current match
-            elif (match_bibcode in prev_bibcodes or source_bibcode in prev_bibcodes) and prev_confidence > confidence:
+            elif (source_bibcode in prev_bibcodes or match_bibcode in prev_bibcodes) and prev_confidence > confidence:
                 continue
 
-        results.append({'source_bibcode': source_bibcode, 'matched_bibcode': match_bibcode,
-                        'confidence': confidence, 'matched': int(confidence > 0.5),
-                        'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2], 'year': scores[3]}})
+        result = {'source_bibcode': source_bibcode, 'matched_bibcode': match_bibcode,
+                  'confidence': confidence, 'matched': int(confidence > 0.5),
+                  'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2], 'year': scores[3]}}
+        if len(scores) == 5:
+            result['scores'].update({'doi': scores[4]})
+        results.append(result)
 
     if len(results) == 0:
         return []
@@ -191,15 +207,8 @@ def get_doi_match(source_bibcode, abstract, title, author, year, doi, matched_do
     :param matched_docs:
     :return:
     """
-    doi_confidence_score = current_app.config['ORACLE_SERVICE_DOI_CONFIDENCE_SCORE']
-
     results = get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs)
-    # need to have a high confidence, otherwise the doi was wrong
     if len(results) == 1:
-        confidence_format = '%.{}f'.format(current_app.config['ORACLE_SERVICE_CONFIDENCE_SIGNIFICANT_DIGITS'])
-        # add doi score of 1. keep significant digits fixed.
-        results[0]['confidence'] = float(confidence_format % (doi_confidence_score + results[0]['confidence']))
-        results[0].get('scores', {}).update({'doi': 1.0})
         return results
     return []
 

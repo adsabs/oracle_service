@@ -35,7 +35,7 @@ class DocMatching(object):
         self.author = get_requests_params(payload, 'author')
         self.year = get_requests_params(payload, 'year')
         self.doctype = get_requests_params(payload, 'doctype')
-        self.doi = get_requests_params(payload, 'doi')
+        self.doi = get_requests_params(payload, 'doi', default_type=list)
         self.mustmatch = get_requests_params(payload, 'mustmatch')
         self.match_doctype = get_requests_params(payload, 'match_doctype', default_type=list)
         self.source_bibcode = get_requests_params(payload, 'bibcode')
@@ -63,8 +63,7 @@ class DocMatching(object):
         :param comment: 
         :return: 
         """
-
-        results, query, solr_status_code = get_solr_data_match_thesis(self.author, self.year, ' OR '.join(self.match_doctype))
+        results, query, solr_status_code = get_solr_data_match_thesis(self.author, self.year, '"%s"' % '" OR "'.join(self.match_doctype))
         # if any records from solr
         if isinstance(results, list) and len(results) > 0:
             match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)
@@ -83,8 +82,9 @@ class DocMatching(object):
         :param comment: 
         :return: 
         """
-        current_app.logger.debug('with parameter: doi={doi}'.format(doi=self.doi))
-        results, query, solr_status_code = get_solr_data_match_doi(self.doi, self.match_doctype)
+        doi_filter = '"%s"'%'" OR "'.join(self.doi)
+        current_app.logger.debug('with parameter: doi=({doi})'.format(doi='"%s"'%'" OR "'.join(self.doi)))
+        results, query, solr_status_code = get_solr_data_match_doi(doi_filter, self.match_doctype)
         # if any records from solr
         # compute the score, if score is 0 doi was wrong, so continue on to query using similar
         if isinstance(results, list) and len(results) > 0:
@@ -189,12 +189,19 @@ class DocMatching(object):
             is_thesis = any(input in self.match_doctype for input in current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get('thesis'))
             if is_thesis:
                 result = self.process_thesis(comment)
-                self.save_match(result)
-                return result
+                if result:
+                    if result[0].get('match', None):
+                        self.save_match(result)
+                        return result
+                    # if no doi, return that nothing was found, but if there is a doi, try it
+                    elif not self.doi:
+                        return result
 
         self.abstract = clean_data(self.abstract)
         self.title = clean_data(self.title)
-        self.extra_filter = 'property:REFEREED' if 'eprint' not in self.match_doctype else ''
+        # remove REFEREED for now
+        #self.extra_filter = 'property:REFEREED' if 'eprint' not in self.match_doctype else ''
+        self.extra_filter = ''
         self.match_doctype = ' OR '.join(self.match_doctype)
 
         # if doi is available try query on doi first
