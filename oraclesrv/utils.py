@@ -194,7 +194,7 @@ def get_a_record(source_bibcode, matched_bibcode):
             current_app.logger.debug("Fetched a record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
             return row.toJSON()
 
-    current_app.logger.error("No record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
+    current_app.logger.debug("No record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
     return None
 
 def add_records(protobuf_docmatches):
