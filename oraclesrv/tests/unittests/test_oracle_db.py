@@ -14,7 +14,6 @@ from oraclesrv.utils import get_a_record, del_records, add_a_record, query_docma
 from oraclesrv.score import get_matches, get_doi_match
 
 
-
 class TestDatabase(TestCaseDatabase):
 
     def create_app(self):
@@ -32,7 +31,7 @@ class TestDatabase(TestCaseDatabase):
         stub_data = [
                         ('2021arXiv210312030S', '2021CSF...15311505S', 0.9829099),
                         ('2017arXiv171111082H', '2018ConPh..59...16H', 0.9877064),
-                        ('2018arXiv181105526S', '2022NuPhB.98015830S', 1.97300124),
+                        ('2018arXiv181105526S', '2022NuPhB.98015830S', 0.97300124),
         ]
 
         docmatch_records = []
@@ -84,7 +83,7 @@ class TestDatabase(TestCaseDatabase):
             }, {
                 "source_bibcode": "2018arXiv181105526S",
                 "matched_bibcode": "2022NuPhB.98015830S",
-                "confidence": 1.97300124
+                "confidence": 0.97300124
             }
         ]
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
@@ -161,7 +160,7 @@ class TestDatabase(TestCaseDatabase):
         # best match for this second arXiv paper is the publisher's first paper, the publisher's second paper not yet published
         best_match = {'source_bibcode': '2022arXiv220606316S',
                       'matched_bibcode': '2021CSF...15311505S',
-                      'confidence': 0.9282047,
+                      'confidence': 0.8353842,
                       'matched': 1,
                       'scores': {'abstract': 0.76, 'title': 0.98, 'author': 1, 'year': 1}}
         matches = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
@@ -185,7 +184,7 @@ class TestDatabase(TestCaseDatabase):
         # add prev match to database
         prev_match = {'source_bibcode': '2021arXiv210911714Q',
                       'matched_bibcode': '2022MNRAS.tmp.1429J',
-                      'confidence': 1.982056}
+                      'confidence': 0.982056}
         add_a_record(prev_match)
 
         # current source with new bibcode, having old bibcode in identifier
@@ -211,7 +210,7 @@ class TestDatabase(TestCaseDatabase):
         # current match the same as prev with the new bibcode
         current_match = {'source_bibcode': '2021arXiv210911714Q',
                          'matched_bibcode': '2022MNRAS.514.1548Q',
-                         'confidence': 1.982056,
+                         'confidence': 0.982056,
                          'matched': 1,
                          'scores': {'abstract': 0.96, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1.0}}
         self.assertEqual(len(matches), 1)
@@ -224,10 +223,10 @@ class TestDatabase(TestCaseDatabase):
         """
         # add records to db, including multiple matches
         matches = [
-            {'source_bibcode': '2021arXiv210911714Q', 'matched_bibcode': '2022MNRAS.tmp.1429J', 'confidence': 1.982056},
+            {'source_bibcode': '2021arXiv210911714Q', 'matched_bibcode': '2022MNRAS.tmp.1429J', 'confidence': 0.982056},
             {'source_bibcode': '2021arXiv210312030S', 'matched_bibcode': '2021CSF...15311505S', 'confidence': 0.9829099},
             {'source_bibcode': '2017arXiv171111082H', 'matched_bibcode': '2018ConPh..59...16H', 'confidence': 0.9877064},
-            {'source_bibcode': '2018arXiv181105526S', 'matched_bibcode': '2022NuPhB.98015830S', 'confidence': 1.97300124},
+            {'source_bibcode': '2018arXiv181105526S', 'matched_bibcode': '2022NuPhB.98015830S', 'confidence': 0.97300124},
             {'source_bibcode': '2022arXiv220806634B', 'matched_bibcode': '2022MNRAS.tmp.2065R', 'confidence': 0.9863155},
             {'source_bibcode': '2022arXiv220807057B', 'matched_bibcode': '2021JHEP...10..058B', 'confidence': 0.7762166},
             {'source_bibcode': '2021arXiv210614498B', 'matched_bibcode': '2021JHEP...10..058B', 'confidence': 0.9938304},
@@ -240,10 +239,10 @@ class TestDatabase(TestCaseDatabase):
             add_a_record(match)
 
         all_with_high_confidence = [
-            ('2021arXiv210911714Q', '2022MNRAS.tmp.1429J', 1.982056),
+            ('2021arXiv210911714Q', '2022MNRAS.tmp.1429J', 0.982056),
             ('2021arXiv210312030S', '2021CSF...15311505S', 0.9829099),
             ('2017arXiv171111082H', '2018ConPh..59...16H', 0.9877064),
-            ('2018arXiv181105526S', '2022NuPhB.98015830S', 1.97300124),
+            ('2018arXiv181105526S', '2022NuPhB.98015830S', 0.97300124),
             ('2021arXiv210614498B', '2021JHEP...10..058B', 0.9938304),
             ('2022arXiv220806634R', '2022MNRAS.tmp.2065R', 0.994127),
             ('2022arXiv220700058R', '2022ApJ...935...54R', 0.9939186),

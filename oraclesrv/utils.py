@@ -106,7 +106,8 @@ def get_solr_data_match(abstract, title, doctype, extra_filter):
         return [], '', 200
 
     try:
-        result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype,doi,identifier')
+        query = query.strip()
+        result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype,doi,identifier,property')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -122,9 +123,11 @@ def get_solr_data_match_doi(doi, doctype):
     :return:
     """
     try:
+        # remove REFEREED for now, but return the property in the results to used it in scoring
+        # also remove the doctype, if there is a doi, just query doi for now
         # query = 'doi:"{doi}" doctype:({doctype}) property:REFEREED'.format(doi=doi, doctype=doctype)
-        query = 'doi:"{doi}" doctype:({doctype})'.format(doi=doi, doctype=doctype)
-        result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier')
+        query = 'identifier:({doi})'.format(doi=doi)
+        result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier,property')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -139,10 +142,12 @@ def get_solr_data_match_thesis(author, year, doctype):
     :param year:
     :return:
     """
+    year_delta = current_app.config['ORACLE_SERVICE_THESIS_YEAR_BEFORE_AFTER']
+    year = int(year)
     try:
         author = author.split(',')
         author_norm = '{}, {}'.format(author[0].strip(), author[1].strip()[0]).lower()
-        query = 'author_norm:"{author}" year:[* TO {year}] doctype:({doctype})'.format(author=author_norm, year=year, doctype=doctype)
+        query = 'author_norm:"{author}" year:[{year_start} TO {year_end}] doctype:({doctype})'.format(author=author_norm, year_start=year-year_delta, year_end=year+year_delta, doctype=doctype)
         result, status_code = get_solr_data(rows=3, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
@@ -160,7 +165,7 @@ def add_a_record(protobuf_docmatch, source_bibcode_doctype=None):
     """
     try:
         with current_app.session_scope() as session:
-            docmatch = DocMatch(protobuf_docmatch['source_bibcode'], protobuf_docmatch['matched_bibcode'], protobuf_docmatch['confidence'], source_bibcode_doctype)
+            docmatch = DocMatch(protobuf_docmatch['source_bibcode'], protobuf_docmatch['matched_bibcode'], protobuf_docmatch['confidence'], None, source_bibcode_doctype)
             found = session.query(exists().where(and_(DocMatch.eprint_bibcode == docmatch.eprint_bibcode,
                                                       DocMatch.pub_bibcode == docmatch.pub_bibcode,
                                                       DocMatch.confidence == docmatch.confidence))).scalar()

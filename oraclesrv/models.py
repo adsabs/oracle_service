@@ -1,4 +1,6 @@
 
+import re
+
 from sqlalchemy import Float, String, Column, DateTime, func
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -13,10 +15,7 @@ class DocMatch(Base):
     confidence = Column(Float, primary_key=True)
     date = Column(DateTime, default=func.now())
 
-    eprint_bibstems = ['arXiv', 'acc.phys', 'adap.org', 'alg.geom', 'ao.sci', 'astro.ph', 'atom.ph', 'bayes.an',
-                       'chao.dyn', 'chem.ph', 'cmp.lg', 'comp.gas', 'cond.mat', 'cs', 'dg.ga', 'funct.an', 'gr.qc',
-                       'hep.ex', 'hep.lat', 'hep.ph', 'hep.th', 'math', 'math.ph', 'mtrl.th', 'nlin', 'nucl.ex',
-                       'nucl.th', 'patt.sol', 'physics', 'plasm.ph', 'q.alg', 'q.bio', 'quant.ph', 'solv.int', 'supr.con']
+    re_eprint_bibstems = re.compile(r'^(\d\d\d\d(?:arXiv|acc.phys|adap.org|alg.geom|ao.sci|astro.ph|atom.ph|bayes.an|chao.dyn|chem.ph|cmp.lg|comp.gas|cond.mat|cs|dg.ga|funct.an|gr.qc|hep.ex|hep.lat|hep.ph|hep.th|math|math.ph|mtrl.th|nlin|nucl.ex|nucl.th|patt.sol|physics|plasm.ph|q.alg|q.bio|quant.ph|solv.int|supr.con))')
 
     def __init__(self, source_bibcode, matched_bibcode, confidence, date=None, source_bibcode_doctype=None):
         """
@@ -48,15 +47,12 @@ class DocMatch(Base):
                 return self.eprint_bibcode
 
         # if no doctype provided, attempt to identify the type from bibcode
-        source_bibstem = source_bibcode[4:9].strip('.')
-        matched_bibstem = matched_bibcode[4:9].strip('.')
-        for eprint_bibstem in self.eprint_bibstems:
-            if eprint_bibstem == source_bibstem:
-                self.eprint_bibcode = source_bibcode
-                return self.eprint_bibcode
-            if eprint_bibstem == matched_bibstem:
-                self.eprint_bibcode = matched_bibcode
-                return self.eprint_bibcode
+        if self.re_eprint_bibstems.match(source_bibcode):
+            self.eprint_bibcode = source_bibcode
+            return self.eprint_bibcode
+        if self.re_eprint_bibstems.match(matched_bibcode):
+            self.eprint_bibcode = matched_bibcode
+            return self.eprint_bibcode
 
         self.eprint_bibcode = ''
         return self.eprint_bibcode
