@@ -496,7 +496,7 @@ class test_oracle(TestCaseDatabase):
             self.assertEqual(result['no match'],
                              'no document was found in solr matching the request.')
             self.assertEqual(result['comment'],
-                             'Matching doctype `phdthesis;mastersthesis`. No matches for thesis.')
+                             'Matching doctype `phdthesis;mastersthesis`. No matches for phdthesis;mastersthesis.')
 
     def test_clean_data(self):
         """
