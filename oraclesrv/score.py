@@ -125,6 +125,11 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
         match_year = doc.get('year', None)
         match_doi = doc.get('doi', [])
         match_identifier = doc.get('identifier', [])
+
+        # if by any chance the same record has been returned skip it
+        if source_bibcode == match_bibcode:
+            continue
+
         if len(abstract) > 0 and not abstract.lower().startswith('not available') and len(match_abstract) > 0:
             scores = [
                 fuzz.token_set_ratio(abstract, match_abstract) / 100.0,
@@ -153,7 +158,7 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
         # if not refereed we want to penalize the confidence score
         match_refereed = True if 'eprint' in doc.get('doctype') else (True if 'REFEREED' in doc.get('property', []) else False)
         confidence = float(confidence_format % (confidence_model.predict(scores) * get_refereed_score(match_refereed)))
- 
+
         # see if either of these bibcodes have already been matched
         prev_match = get_a_record(source_bibcode, match_bibcode)
 

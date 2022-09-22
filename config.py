@@ -816,7 +816,9 @@ ORACLE_SERVICE_MATCH_DOCTYPE = {
     'article': ['eprint'],
     'inproceedings': ['eprint'],
     'inbook': ['eprint'],
-    'thesis': ['phdthesis', 'mastersthesis']
+    'thesis': ['phdthesis', 'mastersthesis'],
+    'erratum': ['erratum'],
+    'bookreview': ['bookreview']
 }
 
 
@@ -833,5 +835,7 @@ ORACLE_SERVICE_NOT_REFEREED_SCORE = 0.9
 
 ORACLE_SERVICE_FIRST_AUTHOR_MATCH_THRESHOLD = 85
 
-# thesis year range
-ORACLE_SERVICE_THESIS_YEAR_BEFORE_AFTER = 5
+# thesis year range (befoer and after)
+ORACLE_SERVICE_THESIS_YEAR_DELTA = 5
+# other doctype (ie, erratum, bookreview, etc) year range
+ORACLE_SERVICE_GENERAL_YEAR_DELTA = 2
