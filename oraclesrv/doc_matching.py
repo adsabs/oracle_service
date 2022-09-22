@@ -1,6 +1,6 @@
 from flask import current_app
 
-from oraclesrv.utils import get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_thesis
+from oraclesrv.utils import get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_doctype_case
 from oraclesrv.score import clean_data, get_matches, encode_author, format_author, get_doi_match
 from oraclesrv.utils import add_a_record
 
@@ -57,23 +57,24 @@ class DocMatching(object):
             result.update({'no match': 'no document was found in solr matching the request.'})
         return result, 200
 
-    def process_thesis(self, comment):
+    def query_doctype(self, comment):
         """
         
         :param comment: 
         :return: 
         """
-        results, query, solr_status_code = get_solr_data_match_thesis(self.author, self.year, '"%s"' % '" OR "'.join(self.match_doctype))
+        doctype = ';'.join(self.match_doctype)
+        results, query, solr_status_code = get_solr_data_match_doctype_case(self.author, self.year, '"%s"' % '" OR "'.join(self.match_doctype))
         # if any records from solr
         if isinstance(results, list) and len(results) > 0:
             match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)
             if not match:
-                current_app.logger.debug('No result from solr for thesis.')
-                comment += ' No result from solr for thesis.'
+                current_app.logger.debug('No result from solr for %s.'%doctype)
+                comment += ' No result from solr for %s.'%doctype
         else:
             match = ''
-            current_app.logger.debug('No matches for thesis.')
-            comment += ' No matches for thesis.'
+            current_app.logger.debug('No matches for %s.'%doctype)
+            comment += ' No matches for %s.'%doctype
         return self.create_and_return_response(match=match, query=query, comment=comment)
 
     def query_doi(self, comment):
@@ -186,16 +187,19 @@ class DocMatching(object):
             else:
                 comment = 'Matching doctype `%s`.'%(self.match_doctype)
 
-            is_thesis = any(input in self.match_doctype for input in current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get('thesis'))
-            if is_thesis:
-                result = self.process_thesis(comment)
-                if result:
-                    if result[0].get('match', None):
-                        self.save_match(result)
-                        return result
-                    # if no doi, return that nothing was found, but if there is a doi, try it
-                    elif not self.doi:
-                        return result
+            # special cases: thesis, erratum, or bookreview
+            for case in ['thesis', 'erratum', 'bookreview']:
+                is_special_case = any(input in self.match_doctype for input in current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get(case))
+                print('-----is_special_case',is_special_case)
+                if is_special_case:
+                    result = self.query_doctype(comment)
+                    if result:
+                        if result[0].get('match', None):
+                            self.save_match(result)
+                            return result
+                        # if no doi, return that nothing was found, but if there is a doi, try it
+                        elif not self.doi:
+                            return result
 
         self.abstract = clean_data(self.abstract)
         self.title = clean_data(self.title)

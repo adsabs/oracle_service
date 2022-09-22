@@ -135,19 +135,26 @@ def get_solr_data_match_doi(doi, doctype):
 
     return result, query, status_code
 
-def get_solr_data_match_thesis(author, year, doctype):
+def get_solr_data_match_doctype_case(author, year, doctype):
     """
 
     :param author:
     :param year:
     :return:
     """
-    year_delta = current_app.config['ORACLE_SERVICE_THESIS_YEAR_BEFORE_AFTER']
-    year = int(year)
+    if 'thesis' in doctype:
+        year_delta = current_app.config['ORACLE_SERVICE_THESIS_YEAR_DELTA']
+        year = int(year)
+        year_filter = '[{year_start} TO {year_end}]'.format(year_start=year-year_delta, year_end=year+year_delta)
+    else:
+        year_delta = current_app.config['ORACLE_SERVICE_GENERAL_YEAR_DELTA']
+        year = int(year)
+        year_filter = '[{year_start} TO {year_end}]'.format(year_start=year-year_delta, year_end=year+year_delta)
+
     try:
         author = author.split(',')
         author_norm = '{}, {}'.format(author[0].strip(), author[1].strip()[0]).lower()
-        query = 'author_norm:"{author}" year:[{year_start} TO {year_end}] doctype:({doctype})'.format(author=author_norm, year_start=year-year_delta, year_end=year+year_delta, doctype=doctype)
+        query = 'author_norm:"{author}" year:{year_filter} doctype:({doctype})'.format(author=author_norm, year_filter=year_filter, doctype=doctype)
         result, status_code = get_solr_data(rows=3, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
