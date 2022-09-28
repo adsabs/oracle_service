@@ -48,6 +48,16 @@ def count_matching_authors(ref_authors, ads_authors):
     except:
         pass
 
+    # because of formatting issues ref_authors might be missing first initials
+    # hence if nothing matches, see if last names match
+    # but need to penalize that only last names were matched
+    if matching_authors == 0:
+        ads_authors_lastname = [a.split(",")[0].strip() for a in ref_authors]
+        matching_authors = round(len(set(ads_authors_lastname) & set(ref_authors_lastname)) * current_app.config['ORACLE_SERVICE_LAST_NAME_ONLY'])
+        if matching_authors > 0:
+            missing_in_ref = len(ref_authors_lastname) - matching_authors
+            missing_in_ads = len(ads_authors_lastname) - matching_authors
+
     return (missing_in_ref, missing_in_ads, matching_authors, first_author_missing)
 
 def get_author_score(ref_authors, ads_authors):
@@ -119,8 +129,8 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
     results = []
     for doc in matched_docs:
         match_bibcode = doc.get('bibcode', '')
-        match_abstract = doc.get('abstract', '')
-        match_title = strip_latex_html(' '.join(doc.get('title', [])))
+        match_abstract = clean_data(doc.get('abstract', ''))
+        match_title = clean_data(' '.join(doc.get('title', [])))
         match_author = doc.get('author_norm', [])
         match_year = doc.get('year', None)
         match_doi = doc.get('doi', [])
@@ -177,6 +187,8 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
             if source_bibcode in prev_bibcodes and match_bibcode in prev_bibcodes and prev_confidence >= confidence:
                 # return the confidence that is recorded in db
                 confidence = prev_confidence
+                # set the scores to empty, since these are not the similarity scores for the match anymore
+                scores = []
             # if there was a match, but different from the current match, see if the confidence is higher then the current match
             # if yes, ignore current match
             elif (source_bibcode in prev_bibcodes or match_bibcode in prev_bibcodes) and prev_confidence > confidence:
@@ -184,7 +196,7 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
 
         result = {'source_bibcode': source_bibcode, 'matched_bibcode': match_bibcode,
                   'confidence': confidence, 'matched': int(confidence > 0.5),
-                  'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2], 'year': scores[3]}}
+                  'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2], 'year': scores[3]} if scores else {}}
         if len(scores) == 5:
             result['scores'].update({'doi': scores[4]})
         results.append(result)
@@ -260,7 +272,7 @@ def remove_control_chars(input, strict=False):
     return input
 
 re_latex_math = re.compile(r'(\$[^$]*\$)')
-re_html_entity = re.compile(r'(<SUB>.*</SUB|<SUP>.*</SUP>)', re.IGNORECASE)
+re_html_entity = re.compile(r'(</?SU[BP]>)', re.IGNORECASE)
 re_escape = re.compile(r'(\\\s*\w+|\\\s*\W+)\b')
 def strip_latex_html(input):
     """
@@ -269,6 +281,9 @@ def strip_latex_html(input):
     :return:
     """
     output = re_latex_math.sub('', input)
+    # if the entire text was marked as math, remove the dollar signs and ignore that it was a latex math
+    if not output:
+        output = input.replace('$', '')
     output = re_html_entity.sub('', output)
     output = re_escape.sub('', output)
     return output

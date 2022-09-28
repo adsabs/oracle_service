@@ -204,7 +204,7 @@ class test_oracle(TestCaseDatabase):
                              'topn(10, similar("Using Gaussian Process regression to analyze the Martian surface methane Tunable Laser Spectrometer (TLS) data reported by Webster (2018), we find that the TLS data, taken as a whole, are not statistically consistent with seasonal variability. The subset of data derived from an enrichment protocol of TLS, if considered in isolation, are equally consistent with either stochastic processes or periodic variability, but the latter does not favour seasonal variation.", input abstract, 20, 1, 1)) doctype:(article OR inproceedings OR inbook)')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190802041G', 'matched_bibcode': '2020Icar..33613407G',
-                               'confidence': 0.8881019, 'matched': 1,
+                               'confidence': 0.8766192, 'matched': 1,
                                'scores': {'abstract': 0.9, 'title': 1.0, 'author': 1, 'year': 1}}])
 
     def test_docmatch_endpoint_no_result_from_solr_metadata(self):
@@ -285,7 +285,7 @@ class test_oracle(TestCaseDatabase):
                              'identifier:("10.1007/JHEP10(2019)244")')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190804722C', 'matched_bibcode': '2019JHEP...10..244S',
-                               'confidence': 0.8519862, 'matched': 1,
+                               'confidence': 0.8716688, 'matched': 1,
                                'scores': {'abstract': 0.94, 'title': 0.99, 'author': 0.3, 'year': 1, 'doi': 1}}])
 
     def test_docmatch_endpoint_with_doi_not_matching(self):
@@ -329,7 +329,7 @@ class test_oracle(TestCaseDatabase):
                              'identifier:("10.1007/JHEP06(2019)121")')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190500882A', 'matched_bibcode': '2019JHEP...06..121A',
-                               'confidence': 0.8772866, 'matched': 1,
+                               'confidence': 0.8843706, 'matched': 1,
                                'scores': {'abstract': 0.92, 'title': 0.99, 'author': 1, 'year': 1, 'doi': 1}}])
 
     def test_docmatch_endpoint_with_accented_author(self):
@@ -371,8 +371,8 @@ class test_oracle(TestCaseDatabase):
                              'topn(10, similar("Entanglement, an essential feature of quantum theory that allows forinseparable quantum correlations to be shared between distant parties, is acrucial resource for quantum networks. Of particular importance is the abilityto distribute entanglement between remote objects that can also serve asquantum memories. This has been previously realized using systems such as warmand cold atomic vapours, individual atoms and ions, and defects in solid-statesystems. Practical communication applications require a combination of severaladvantageous features, such as a particular operating wavelength, highbandwidth and long memory lifetimes. Here we introduce a purely micromachinedsolid-state platform in the form of chip-based optomechanical resonators madeof nanostructured silicon beams. We create and demonstrate entanglement betweentwo micromechanical oscillators across two chips that are separated by 20centimetres. The entangled quantum state is distributed by an optical field ata designed wavelength near 1550 nanometres. Therefore, our system can bedirectly incorporated in a realistic fibre-optic quantum network operating inthe conventional optical telecommunication band. Our results are an importantstep towards the development of large-area quantum networks based on siliconphotonics.", input abstract, 49, 1, 1)) doctype:(article OR inproceedings OR inbook)')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2017arXiv171011147R', 'matched_bibcode': '2018Natur.556..473R',
-                               'confidence': 0.8857538, 'matched': 1,
-                               'scores': {'abstract': 0.91, 'title': 1.0, 'author': 0.62, 'year': 1}}])
+                               'confidence': 0.8745491, 'matched': 1,
+                               'scores': {'abstract': 0.92, 'title': 1.0, 'author': 0.62, 'year': 1}}])
 
     def test_docmatch_endpoint_no_abstract_solr_record(self):
         """
@@ -412,7 +412,7 @@ class test_oracle(TestCaseDatabase):
                              'topn(10, similar("In light of substantial new discoveries of hot subdwarfs by ongoing spectroscopic surveys and the availability of new all-sky data from ground-based photometric surveys and the Gaia mission Data Release 2, we compiled an updated catalogue of the known hot subdwarf stars. The catalogue contains 5874 unique sources including 528 previously unknown hot subdwarfs and provides multi-band photometry, astrometry from Gaia, and classifications based on spectroscopy and colours. This new catalogue provides atmospheric parameters of 2187 stars and radial velocities of 2790 stars from the literature. Using colour, absolute magnitude, and reduced proper motion criteria, we identified 268 previously misclassified objects, most of which are less luminous white dwarfs or more luminous blue horizontal branch and main-sequence stars. <P />The catalogues are only available at the CDS via anonymous ftp to <A href=\'http://cdsarc.u-strasbg.fr/\'>http://cdsarc.u-strasbg.fr</A> (ftp://130.79.128.5) or via <A href=\'http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193\'>http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193</A>", input abstract, 41, 1, 1)) doctype:(article OR inproceedings OR inbook)')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2020arXiv200210896G', 'matched_bibcode': '2020A&A...635A.193G',
-                               'confidence': 0.8987652, 'matched': 1,
+                               'confidence': 0.8988905, 'matched': 1,
                                'scores': {'abstract': None, 'title': 0.99, 'author': 1, 'year': 1}}])
 
     def test_docmatch_endpoint_matching_thesis(self):
@@ -457,7 +457,7 @@ class test_oracle(TestCaseDatabase):
                              'author_norm:"zheng, b" year:[2013 TO 2023] doctype:("phdthesis" OR "mastersthesis")')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2018arXiv180310259Z', 'matched_bibcode': '2017PhDT........67Z',
-                               'confidence': 0.8869481, 'matched': 1,
+                               'confidence': 0.8730186, 'matched': 1,
                                'scores': {'abstract': 0.89, 'title': 1.0, 'author': 1, 'year': 1}}])
             self.assertEqual(result['comment'],
                              'Matching doctype `phdthesis;mastersthesis`.')
@@ -555,7 +555,7 @@ class test_oracle(TestCaseDatabase):
                              'topn(10, similar("Statistical analysis of Curiosity data shows no evidence for a strong seasonal cycle of Martian methane", input title, 13, 1, 1)) doctype:(article OR inproceedings OR inbook)')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190802041G', 'matched_bibcode': '2020Icar..33613407G',
-                               'confidence': 0.8988241, 'matched': 1,
+                               'confidence': 0.8989977, 'matched': 1,
                                'scores': {'abstract': None, 'title': 1.0, 'author': 1, 'year': 1}}])
 
 
@@ -566,12 +566,12 @@ class test_oracle(TestCaseDatabase):
         """
         r = self.client.post(path='/query')
         result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results':  [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8869481], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8987652], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8988241], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8857538], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8519862], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8772866]]})
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8716688], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8843706]]})
 
         # set the rows to a larger number and see that it is reset
         r = self.client.post(path='/query', data=json.dumps({'rows': 3000, 'start': 0}))
         result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results':  [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8869481], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8987652], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8988241], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8857538], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8519862], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8772866]]})
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8716688], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8843706]]})
 
     def test_get_matches(self):
         """
@@ -600,7 +600,7 @@ class test_oracle(TestCaseDatabase):
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
                                         'matched_bibcode': '2021CSF...15311505S',
-                                        'confidence': 0.9282047,
+                                        'confidence': 0.7936664,
                                         'matched': 1,
                                         'scores': {'abstract': 0.76, 'title': 0.98, 'author': 1, 'year': 1}})
 
@@ -609,7 +609,7 @@ class test_oracle(TestCaseDatabase):
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
                                         'matched_bibcode': '2021CSF...15311505S',
-                                        'confidence': 0.9985604,
+                                        'confidence': 0.9986353,
                                         'matched': 1,
                                         'scores': {'abstract': None, 'title': 0.98, 'author': 1, 'year': 1}})
 
@@ -618,7 +618,7 @@ class test_oracle(TestCaseDatabase):
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
                                         'matched_bibcode': '2021CSF...15311505S',
-                                        'confidence': 0.7468483,
+                                        'confidence': 0.9913536,
                                         'matched': 1,
                                         'scores': {'abstract': 0.76, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1}})
 
@@ -627,7 +627,7 @@ class test_oracle(TestCaseDatabase):
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
                                         'matched_bibcode': '2021CSF...15311505S',
-                                        'confidence': 0.9998494,
+                                        'confidence': 0.9899692,
                                         'matched': 1,
                                         'scores': {'abstract': None, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1}})
 

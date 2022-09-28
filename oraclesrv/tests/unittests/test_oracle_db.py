@@ -160,7 +160,7 @@ class TestDatabase(TestCaseDatabase):
         # best match for this second arXiv paper is the publisher's first paper, the publisher's second paper not yet published
         best_match = {'source_bibcode': '2022arXiv220606316S',
                       'matched_bibcode': '2021CSF...15311505S',
-                      'confidence': 0.8353842,
+                      'confidence': 0.7142998,
                       'matched': 1,
                       'scores': {'abstract': 0.76, 'title': 0.98, 'author': 1, 'year': 1}}
         matches = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
@@ -212,7 +212,7 @@ class TestDatabase(TestCaseDatabase):
                          'matched_bibcode': '2022MNRAS.514.1548Q',
                          'confidence': 0.982056,
                          'matched': 1,
-                         'scores': {'abstract': 0.96, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1.0}}
+                         'scores': {}}
         self.assertEqual(len(matches), 1)
         self.assertDictEqual(matches[0], current_match)
 
