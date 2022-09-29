@@ -126,6 +126,7 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
     :param matched_docs:
     :return:
     """
+    confidence_threshold = current_app.config['ORACLE_SERVICE_CONFIDENCE_THRESHOLD']
     results = []
     for doc in matched_docs:
         match_bibcode = doc.get('bibcode', '')
@@ -172,8 +173,8 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
         # see if either of these bibcodes have already been matched
         prev_match = get_a_record(source_bibcode, match_bibcode)
 
-        # even if confidence is low, doi does not matches, and there is no prev matches, skip it
-        if confidence < 0.01 and not dois_matches and not prev_match:
+        # if confidence is low, doi does not matches, and there is no prev matches, skip it
+        if confidence < confidence_threshold and not dois_matches and not prev_match:
             continue
 
         if prev_match:
@@ -189,8 +190,12 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
                 confidence = prev_confidence
                 # set the scores to empty, since these are not the similarity scores for the match anymore
                 scores = []
-            # if there was a match, but different from the current match, see if the confidence is higher then the current match
-            # if yes, ignore current match
+            # if this match is marked as wrong in the database, ignore it
+            elif source_bibcode == prev_match['eprint_bibcode'] and match_bibcode == prev_match['pub_bibcode'] and prev_match['confidence'] < 0:
+                continue
+            # if there was a match, but different from the current match,
+            # see if the confidence is higher then the current match
+            # and if yes, ignore current match
             elif (source_bibcode in prev_bibcodes or match_bibcode in prev_bibcodes) and prev_confidence > confidence:
                 continue
 
@@ -201,15 +206,16 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
             result['scores'].update({'doi': scores[4]})
         results.append(result)
 
-    if len(results) == 0:
+    if len(results) == 0 or (len(results) > 0 and results[0]['confidence'] < confidence_threshold):
         return []
 
     if len(results) == 1:
         return results
 
-    # if multiple records are returned, make sure highest is at the top, then remove any records that have confidence difference with the largest > 0.5
+    # if multiple records are returned, make sure highest is at the top, then remove any records that
+    # have confidence difference with the largest > 0.5 or their confidence is lower than the threshold
     results = sorted(results, key=lambda x: x['confidence'], reverse=True)
-    results = [results[0]] + [result for result in results[1:] if (results[0]['confidence'] - result['confidence']) < 0.5]
+    results = [results[0]] + [result for result in results[1:] if result['confidence'] >= confidence_threshold and (results[0]['confidence'] - result['confidence']) < 0.5]
     return results
 
 def get_doi_match(source_bibcode, abstract, title, author, year, doi, matched_docs):
