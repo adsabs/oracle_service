@@ -27,7 +27,7 @@ class KerasModel(object):
     # no abstract but with doi
     training_file_3dim_w_doi = '/keras_model_files/data_3dim_w_doi.csv'
 
-    units_4dim = [16, 16, 8, 8, 1]
+    units_4dim = [16, 8, 8, 8, 1]
     units_3dim = [16, 8, 8, 1]
     units_4dim_w_doi = [16, 16, 8, 8, 8, 1]
     units_3dim_w_doi = [16, 8, 8, 8, 1]
@@ -43,6 +43,8 @@ class KerasModel(object):
     model_file_3dim_w_doi = os.path.dirname(__file__) + '/keras_model_files/4layer3dim_w_doi'
 
     model_loaded = False
+
+    max_build_retry = 5
 
     def train_data_4dim(self): # pragma: no cover
         """
@@ -78,16 +80,16 @@ class KerasModel(object):
                       loss=self.loss,
                       metrics=['accuracy'])
 
-        self.history = self.model_4dim.fit(partial_x_train,
-                            partial_y_train,
-                            epochs=self.epoch,
-                            batch_size=self.batch_size,
-                            validation_data=(x_val, y_val),
-                            verbose=0)
+        self.model_4dim.fit(partial_x_train,
+                    partial_y_train,
+                    epochs=self.epoch,
+                    batch_size=self.batch_size,
+                    validation_data=(x_val, y_val),
+                    verbose=0)
 
-        self.test_loss, self.test_accuracy = self.model_4dim.evaluate(X_test, y_test)
-
-        return (self.test_accuracy >= 0.95)
+        test_loss, test_accuracy = self.model_4dim.evaluate(X_test, y_test)
+        current_app.logger.debug("4dim test accuracy = %.2f"%test_accuracy)
+        return test_accuracy
 
     def train_data_3dim(self): # pragma: no cover
         """
@@ -122,16 +124,16 @@ class KerasModel(object):
                       loss=self.loss,
                       metrics=['accuracy'])
 
-        self.history = self.model_3dim.fit(partial_x_train,
-                            partial_y_train,
-                            epochs=self.epoch,
-                            batch_size=self.batch_size,
-                            validation_data=(x_val, y_val),
-                            verbose=0)
+        self.model_3dim.fit(partial_x_train,
+                    partial_y_train,
+                    epochs=self.epoch,
+                    batch_size=self.batch_size,
+                    validation_data=(x_val, y_val),
+                    verbose=0)
 
-        self.test_loss, self.test_accuracy = self.model_3dim.evaluate(X_test, y_test)
-
-        return (self.test_accuracy >= 0.95)
+        test_loss, test_accuracy = self.model_3dim.evaluate(X_test, y_test)
+        current_app.logger.debug("3dim test accuracy = %.2f"%test_accuracy)
+        return test_accuracy
 
     def train_data_4dim_w_doi(self): # pragma: no cover
         """
@@ -168,16 +170,16 @@ class KerasModel(object):
                       loss=self.loss,
                       metrics=['accuracy'])
 
-        self.history = self.model_4dim_w_doi.fit(partial_x_train,
-                            partial_y_train,
-                            epochs=self.epoch,
-                            batch_size=self.batch_size,
-                            validation_data=(x_val, y_val),
-                            verbose=0)
+        self.model_4dim_w_doi.fit(partial_x_train,
+                    partial_y_train,
+                    epochs=self.epoch,
+                    batch_size=self.batch_size,
+                    validation_data=(x_val, y_val),
+                    verbose=0)
 
-        self.test_loss, self.test_accuracy = self.model_4dim_w_doi.evaluate(X_test, y_test)
-
-        return (self.test_accuracy >= 0.95)
+        test_loss, test_accuracy = self.model_4dim_w_doi.evaluate(X_test, y_test)
+        current_app.logger.debug("4dim_w_doi test accuracy = %.2f"%test_accuracy)
+        return test_accuracy
 
     def train_data_3dim_w_doi(self): # pragma: no cover
         """
@@ -213,24 +215,57 @@ class KerasModel(object):
                       loss=self.loss,
                       metrics=['accuracy'])
 
-        self.history = self.model_3dim_w_doi.fit(partial_x_train,
-                            partial_y_train,
-                            epochs=self.epoch,
-                            batch_size=self.batch_size,
-                            validation_data=(x_val, y_val),
-                            verbose=0)
+        self.model_3dim_w_doi.fit(partial_x_train,
+                    partial_y_train,
+                    epochs=self.epoch,
+                    batch_size=self.batch_size,
+                    validation_data=(x_val, y_val),
+                    verbose=0)
 
-        self.test_loss, self.test_accuracy = self.model_3dim_w_doi.evaluate(X_test, y_test)
+        test_loss, test_accuracy = self.model_3dim_w_doi.evaluate(X_test, y_test)
+        current_app.logger.debug("3dim_w_doi test accuracy = %.2f"%test_accuracy)
+        return test_accuracy
 
-        return (self.test_accuracy >= 0.95)
-
-    def train(self): # pragma: no cover
+    def train_and_save(self): # pragma: no cover
         """
 
         :return:
         """
-        return self.train_data_4dim() and self.train_data_3dim() and \
-               self.train_data_4dim_w_doi() and self.train_data_3dim_w_doi()
+        success = False
+        for _ in range(self.max_build_retry):
+            if self.train_data_4dim() > 0.97:
+                self.model_4dim.save(self.model_file_4dim)
+                success = True
+                break
+        if not success:
+            return False
+
+        success = False
+        for _ in range(self.max_build_retry):
+            if self.train_data_3dim() > 0.97:
+                self.model_3dim.save(self.model_file_3dim)
+                success = True
+                break
+        if not success:
+            return False
+
+        success = False
+        for _ in range(self.max_build_retry):
+            if self.train_data_4dim_w_doi() > 0.95:
+                self.model_4dim_w_doi.save(self.model_file_4dim_w_doi)
+                success = True
+                break
+        if not success:
+            return False
+
+        success = False
+        for _ in range(self.max_build_retry):
+            if self.train_data_3dim_w_doi() > 0.93:
+                self.model_3dim_w_doi.save(self.model_file_3dim_w_doi)
+                success = True
+                break
+        if not success:
+            return False
 
     def predict(self, scores):
         """
@@ -270,16 +305,6 @@ class KerasModel(object):
             current_app.logger.error(str(e))
             return 0
 
-    def save(self): # pragma: no cover
-        """
-        save model
-
-        """
-        self.model_4dim.save(self.model_file_4dim)
-        self.model_3dim.save(self.model_file_3dim)
-        self.model_4dim_w_doi.save(self.model_file_4dim_w_doi)
-        self.model_3dim_w_doi.save(self.model_file_3dim_w_doi)
-
     def load(self): # pragma: no cover
         """
 
@@ -302,9 +327,9 @@ def create_keras_model():  # pragma: no cover
     try:
         start_time = time.time()
         keras_model = KerasModel()
-        if not (keras_model.train() and keras_model.save()):
+        if not keras_model.train_and_save():
             raise
-        current_app.logger.debug("crf text model trained and saved in %s ms" % ((time.time() - start_time) * 1000))
+        current_app.logger.debug("keras models trained and saved in %s ms" % ((time.time() - start_time) * 1000))
         return keras_model
     except Exception as e:
         current_app.logger.error('Exception: %s' % (str(e)))

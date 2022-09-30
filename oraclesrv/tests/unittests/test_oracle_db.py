@@ -156,11 +156,11 @@ class TestDatabase(TestCaseDatabase):
                          'title': ['Molecular hydrodynamics of a weakly degenerate nonideal bose-gas II. Green functions and kinetic coefficients'],
                          'year': '1995'}]
 
-        # case when multiple arXiv can be matched against one one publisher
+        # case when multiple arXiv can be matched against one publisher
         # best match for this second arXiv paper is the publisher's first paper, the publisher's second paper not yet published
         best_match = {'source_bibcode': '2022arXiv220606316S',
                       'matched_bibcode': '2021CSF...15311505S',
-                      'confidence': 0.8353842,
+                      'confidence': 0.7142998,
                       'matched': 1,
                       'scores': {'abstract': 0.76, 'title': 0.98, 'author': 1, 'year': 1}}
         matches = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
@@ -212,7 +212,7 @@ class TestDatabase(TestCaseDatabase):
                          'matched_bibcode': '2022MNRAS.514.1548Q',
                          'confidence': 0.982056,
                          'matched': 1,
-                         'scores': {'abstract': 0.96, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1.0}}
+                         'scores': {}}
         self.assertEqual(len(matches), 1)
         self.assertDictEqual(matches[0], current_match)
 
@@ -239,14 +239,14 @@ class TestDatabase(TestCaseDatabase):
             add_a_record(match)
 
         all_with_high_confidence = [
-            ('2021arXiv210911714Q', '2022MNRAS.tmp.1429J', 0.982056),
-            ('2021arXiv210312030S', '2021CSF...15311505S', 0.9829099),
             ('2017arXiv171111082H', '2018ConPh..59...16H', 0.9877064),
-            ('2018arXiv181105526S', '2022NuPhB.98015830S', 0.97300124),
+            ('2021arXiv210312030S', '2021CSF...15311505S', 0.9829099),
             ('2021arXiv210614498B', '2021JHEP...10..058B', 0.9938304),
-            ('2022arXiv220806634R', '2022MNRAS.tmp.2065R', 0.994127),
-            ('2022arXiv220700058R', '2022ApJ...935...54R', 0.9939186),
             ('2022arXiv220702921C', '2022ApJ...935...44C', 0.9927035),
+            ('2022arXiv220700058R', '2022ApJ...935...54R', 0.9939186),
+            ('2021arXiv210911714Q', '2022MNRAS.tmp.1429J', 0.982056),
+            ('2022arXiv220806634R', '2022MNRAS.tmp.2065R', 0.994127),
+            ('2018arXiv181105526S', '2022NuPhB.98015830S', 0.97300124),
         ]
 
         # test all unique records are returned

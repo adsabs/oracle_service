@@ -190,7 +190,6 @@ class DocMatching(object):
             # special cases: thesis, erratum, or bookreview
             for case in ['thesis', 'erratum', 'bookreview']:
                 is_special_case = any(input in self.match_doctype for input in current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get(case))
-                print('-----is_special_case',is_special_case)
                 if is_special_case:
                     result = self.query_doctype(comment)
                     if result:
