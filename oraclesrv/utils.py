@@ -284,12 +284,14 @@ def query_docmatch(params):
         with current_app.session_scope() as session:
             # setup subquery to extract the published records with the highest confidence
             highest_confidence = session.query(DocMatch.pub_bibcode, func.max(DocMatch.confidence).label('confidence')) \
-                .group_by(DocMatch.pub_bibcode).distinct().offset(params['start']).limit(params['rows']).subquery()
+                .order_by(DocMatch.pub_bibcode.asc()).group_by(DocMatch.pub_bibcode).distinct() \
+                .offset(params['start']).limit(params['rows']).subquery()
             # get full records with the highest confidence
             result = session.query(DocMatch.eprint_bibcode, DocMatch.pub_bibcode, DocMatch.confidence, DocMatch.date) \
                 .filter(and_(DocMatch.pub_bibcode == highest_confidence.c.pub_bibcode,
                              DocMatch.confidence == highest_confidence.c.confidence,
-                             DocMatch.date >= params['date_cutoff'])).all()
+                             DocMatch.date >= params['date_cutoff'])) \
+                .order_by(DocMatch.pub_bibcode.asc()).all()
 
             if len(result) > 0:
                 # remove the last field, which is datetime, is not needed to be returned

@@ -201,6 +201,8 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
                 if (source_bibcode in prev_bibcodes and match_bibcode in prev_bibcodes):
                     confidence = prev_confidence
                     scores = []
+                else:
+                    continue
 
         result = {'source_bibcode': source_bibcode, 'matched_bibcode': match_bibcode,
                   'confidence': confidence, 'matched': int(confidence > 0.5),

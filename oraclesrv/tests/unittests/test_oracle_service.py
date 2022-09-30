@@ -566,12 +566,12 @@ class test_oracle(TestCaseDatabase):
         """
         r = self.client.post(path='/query')
         result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8716688], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8843706]]})
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8843706], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8716688], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977]]})
 
         # set the rows to a larger number and see that it is reset
         r = self.client.post(path='/query', data=json.dumps({'rows': 3000, 'start': 0}))
         result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8716688], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8843706]]})
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8843706], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8716688], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977]]})
 
     def test_get_matches(self):
         """
