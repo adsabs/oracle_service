@@ -151,9 +151,18 @@ def get_solr_data_match_doctype_case(author, year, doctype):
         year = int(year)
         year_filter = '[{year_start} TO {year_end}]'.format(year_start=year-year_delta, year_end=year+year_delta)
 
+    # note that this could be thesis with one author, or erratum or bookreview with many authors
+    # query only on the first author
     try:
+        # if multiple authors, need only the first author
+        if ';' in author:
+            author = author.split(';')[0]
         author = author.split(',')
-        author_norm = '{}, {}'.format(author[0].strip(), author[1].strip()[0]).lower()
+        # if only last name
+        if len(author) == 1:
+            author_norm = '{}'.format(author[0].strip()).lower()
+        else:
+            author_norm = '{}, {}'.format(author[0].strip(), author[1].strip()[0]).lower()
         query = 'author_norm:"{author}" year:{year_filter} doctype:({doctype})'.format(author=author_norm, year_filter=year_filter, doctype=doctype)
         result, status_code = get_solr_data(rows=3, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier')
     except requests.exceptions.HTTPError as e:
@@ -271,16 +280,17 @@ def query_docmatch(params):
     :return:
     """
     try:
+
         with current_app.session_scope() as session:
             # setup subquery to extract the published records with the highest confidence
             highest_confidence = session.query(DocMatch.pub_bibcode, func.max(DocMatch.confidence).label('confidence')) \
-                .group_by(DocMatch.pub_bibcode).distinct().subquery()
+                .group_by(DocMatch.pub_bibcode).distinct().offset(params['start']).limit(params['rows']).subquery()
             # get full records with the highest confidence
             result = session.query(DocMatch.eprint_bibcode, DocMatch.pub_bibcode, DocMatch.confidence, DocMatch.date) \
                 .filter(and_(DocMatch.pub_bibcode == highest_confidence.c.pub_bibcode,
                              DocMatch.confidence == highest_confidence.c.confidence,
-                             DocMatch.date >= params['date_cutoff'])) \
-                .limit(params['rows']).offset(params['start']).all()
+                             DocMatch.date >= params['date_cutoff'])).all()
+
             if len(result) > 0:
                 # remove the last field, which is datetime, is not needed to be returned
                 result = [r[0:3] for r in result]

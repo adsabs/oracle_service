@@ -127,6 +127,7 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
     :return:
     """
     confidence_threshold = current_app.config['ORACLE_SERVICE_CONFIDENCE_THRESHOLD']
+    confidence_difference = current_app.config['ORACLE_SERVICE_CONFIDENCE_DIFFERENCE']
     results = []
     for doc in matched_docs:
         match_bibcode = doc.get('bibcode', '')
@@ -197,7 +198,9 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
             # see if the confidence is higher then the current match
             # and if yes, ignore current match
             elif (source_bibcode in prev_bibcodes or match_bibcode in prev_bibcodes) and prev_confidence > confidence:
-                continue
+                if (source_bibcode in prev_bibcodes and match_bibcode in prev_bibcodes):
+                    confidence = prev_confidence
+                    scores = []
 
         result = {'source_bibcode': source_bibcode, 'matched_bibcode': match_bibcode,
                   'confidence': confidence, 'matched': int(confidence > 0.5),
@@ -206,17 +209,21 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
             result['scores'].update({'doi': scores[4]})
         results.append(result)
 
-    if len(results) == 0 or (len(results) > 0 and results[0]['confidence'] < confidence_threshold):
+    if len(results) == 0:
         return []
 
-    if len(results) == 1:
+    if len(results) == 1 and results[0]['confidence'] >= confidence_threshold:
         return results
 
     # if multiple records are returned, make sure highest is at the top, then remove any records that
     # have confidence difference with the largest > 0.5 or their confidence is lower than the threshold
     results = sorted(results, key=lambda x: x['confidence'], reverse=True)
-    results = [results[0]] + [result for result in results[1:] if result['confidence'] >= confidence_threshold and (results[0]['confidence'] - result['confidence']) < 0.5]
-    return results
+    results = [results[0]] + [result for result in results[1:] if result['confidence'] >= confidence_threshold and (results[0]['confidence'] - result['confidence']) < confidence_difference]
+
+    if (len(results) > 0 and results[0]['confidence'] >= confidence_threshold):
+        return results
+
+    return []
 
 def get_doi_match(source_bibcode, abstract, title, author, year, doi, matched_docs):
     """
