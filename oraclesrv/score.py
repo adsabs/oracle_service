@@ -52,7 +52,7 @@ def count_matching_authors(ref_authors, ads_authors):
     # hence if nothing matches, see if last names match
     # but need to penalize that only last names were matched
     if matching_authors == 0:
-        ads_authors_lastname = [a.split(",")[0].strip() for a in ref_authors]
+        ads_authors_lastname = [a.split(",")[0].strip() for a in ads_authors]
         matching_authors = round(len(set(ads_authors_lastname) & set(ref_authors_lastname)) * current_app.config['ORACLE_SERVICE_LAST_NAME_ONLY'])
         if matching_authors > 0:
             missing_in_ref = len(ref_authors_lastname) - matching_authors
