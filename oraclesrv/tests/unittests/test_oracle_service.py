@@ -285,7 +285,7 @@ class test_oracle(TestCaseDatabase):
                              'identifier:("10.1007/JHEP10(2019)244")')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190804722C', 'matched_bibcode': '2019JHEP...10..244S',
-                               'confidence': 0.8716688, 'matched': 1,
+                               'confidence': 0.8865355, 'matched': 1,
                                'scores': {'abstract': 0.94, 'title': 0.99, 'author': 0.3, 'year': 1, 'doi': 1}}])
 
     def test_docmatch_endpoint_with_doi_not_matching(self):
@@ -329,7 +329,7 @@ class test_oracle(TestCaseDatabase):
                              'identifier:("10.1007/JHEP06(2019)121")')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190500882A', 'matched_bibcode': '2019JHEP...06..121A',
-                               'confidence': 0.8843706, 'matched': 1,
+                               'confidence': 0.8960806, 'matched': 1,
                                'scores': {'abstract': 0.92, 'title': 0.99, 'author': 1, 'year': 1, 'doi': 1}}])
 
     def test_docmatch_endpoint_with_accented_author(self):
@@ -566,12 +566,12 @@ class test_oracle(TestCaseDatabase):
         """
         r = self.client.post(path='/query')
         result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8843706], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8716688], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977]]})
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977]]})
 
         # set the rows to a larger number and see that it is reset
         r = self.client.post(path='/query', data=json.dumps({'rows': 3000, 'start': 0}))
         result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8843706], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8716688], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977]]})
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977]]})
 
     def test_get_matches(self):
         """
@@ -618,7 +618,7 @@ class test_oracle(TestCaseDatabase):
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
                                         'matched_bibcode': '2021CSF...15311505S',
-                                        'confidence': 0.9913536,
+                                        'confidence': 0.9946523,
                                         'matched': 1,
                                         'scores': {'abstract': 0.76, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1}})
 
