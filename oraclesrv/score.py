@@ -156,13 +156,17 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
                 get_author_score(author, match_author),
                 get_year_score(abs(int(match_year) - int(year)))
             ]
-        # include doi if thre is a match
+        # include doi if there is a match
         if match_doi and doi:
             dois_matches = any(x in doi for x in match_doi)
         else:
             dois_matches = False
+        # add the score of doi in, if matched
         if dois_matches:
             scores = scores + [1]
+        # if no doi, no abstract, and authors do not match, ignore this match
+        elif scores[0] == None and scores[2] == 0:
+                continue
 
         confidence_format = '%.{}f'.format(current_app.config['ORACLE_SERVICE_CONFIDENCE_SIGNIFICANT_DIGITS'])
         # if we are matching with eprints, consider eprint a refereed manuscript
