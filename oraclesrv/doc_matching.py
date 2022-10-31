@@ -207,12 +207,16 @@ class DocMatching(object):
         self.extra_filter = ''
         self.match_doctype = ' OR '.join(self.match_doctype)
 
-        # if doi is available try query on doi first
-        if self.doi:
+        # if doi is available from the eprint try query on doi first
+        if self.doi and self.doctype == 'eprint':
             result, comment = self.query_doi(comment)
             if result:
                 self.save_match(result)
                 return result
+        # if doi is available on the side of publisher metadata
+        # need to query pubnote that right now is not possible 10/31/2022
+        elif self.doi:
+            pass
 
         current_app.logger.debug('with parameters: abstract={abstract}, title={title}, author={author}, year={year}, doctype={doctype}'.format(
             abstract=self.abstract[:100]+'...', title=self.title, author=self.author, year=self.year, doctype=self.doctype))

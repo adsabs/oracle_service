@@ -138,6 +138,11 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
         match_doi = doc.get('doi', [])
         match_identifier = doc.get('identifier', [])
 
+        # see if there is a doi from eprint, and add it to the doi list
+        doi_pubnote = doc.get('doi_pubnote', None)
+        if doi_pubnote and doi_pubnote not in match_doi:
+            match_doi.append(doi_pubnote)
+
         # if by any chance the same record has been returned skip it
         if source_bibcode == match_bibcode:
             continue

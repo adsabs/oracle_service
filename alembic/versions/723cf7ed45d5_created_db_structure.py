@@ -27,7 +27,7 @@ def upgrade():
     sa.Column('pub_bibcode', sa.String(), nullable=False),
     sa.Column('confidence', sa.Float(), nullable=False),
     sa.Column('date', sa.DateTime(timezone=True), nullable=False),
-    sa.PrimaryKeyConstraint('eprint_bibcode', 'pub_bibcode', 'confidence')
+    sa.PrimaryKeyConstraint('eprint_bibcode', 'pub_bibcode')
     )
     # ### end Alembic commands ###
 

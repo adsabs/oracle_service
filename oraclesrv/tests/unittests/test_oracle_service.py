@@ -566,12 +566,12 @@ class test_oracle(TestCaseDatabase):
         """
         r = self.client.post(path='/query')
         result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977]]})
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192]]})
 
         # set the rows to a larger number and see that it is reset
         r = self.client.post(path='/query', data=json.dumps({'rows': 3000, 'start': 0}))
         result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8989977]]})
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192]]})
 
     def test_get_matches(self):
         """
@@ -630,6 +630,38 @@ class test_oracle(TestCaseDatabase):
                                         'confidence': 0.9899692,
                                         'matched': 1,
                                         'scores': {'abstract': None, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1}})
+
+    def test_get_match_for_pub_with_doi(self):
+        """
+        Test matching publication with doi
+        :return:
+        """
+        source_bibcode = '2022AcAT....3a..27P'
+        abstract = 'Not Available'
+        title = 'Revisiting the spectral energy distribution of I Zw 1 under the CaFe Project'
+        author = 'Panda, Swayamtrupta; Dias dos Santos, Denimara'
+        year = 2022
+        doi = ['10.31059/aat.vol3.iss1.pp27-34']
+
+        matched_docs = [{'bibcode': '2021arXiv211101521P',
+                         'abstract': 'The CaFe Project involves the study of the properties of the low ionization emission lines (LILs) pertaining to the broad-line region (BLR) in active galaxies. These emission lines, especially the singly-ionized iron (Fe II) in the optical and the corresponding singly-ionized calcium (Ca II) in the near-infrared (NIR) are found to show a strong correlation in their emission strengths, i.e. with respect to the broad H$\\beta$ emission line, the latter also belonging to the same category of LILs. The origin of this correlation is attributed to the similarity in the physical conditions necessary to emit these lines - especially in terms of the strength of the ionization from the central continuum source and the local number density of available matter in these regions. In this paper, we focus on the issue of the spectral energy distribution (SED) characteristic to a prototypical Type-1 Narrow-line Seyfert galaxy (NLS1) - I Zw 1. We extract the continuum from quasi-simultaneous spectroscopic measurements ranging from the near-UV ($\\sim$1200A) to the near-infrared ($\\sim$24000A) to construct the SED and supplement it with archival X-ray measurements available for this source. Using the photoionization code CLOUDY, we assess and compare the contribution of the prominent \"Big Blue Bump\" seen in our SED versus the SED used in our previous work, wherein the latter was constructed from archival, multi-epoch photometric measurements. Following the prescription from our previous work, we constrain the physical parameter space to optimize the emission from these LILs and discuss the implication of the use of a \"better\" SED.',
+                         'author_norm': ['Panda, S', 'Dias dos Santos, D'],
+                         'doctype': 'eprint',
+                         'identifier': ['arXiv:2111.01521', '2021arXiv211101521P'],
+                         'title': ['Revisiting the spectral energy distribution of I Zw 1 under the CaFe Project'],
+                         'year': '2021',
+                         'property': ['ARTICLE','EPRINT_OPENACCESS','ESOURCE','OPENACCESS','NOT REFEREED'],
+                         'doi_pubnote': '10.31059/aat.vol3.iss1.pp27-34'}]
+
+        # abstract, no doi
+        match = get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs)
+        self.assertEqual(len(match), 1)
+        self.assertDictEqual(match[0], {'source_bibcode': '2022AcAT....3a..27P',
+                                        'matched_bibcode': '2021arXiv211101521P',
+                                        'confidence': 0.9911571,
+                                        'matched': 1,
+                                        'scores': {'abstract': None, 'title': 1.0, 'author': 1, 'year': 1, 'doi': 1}})
+
 
 if __name__ == "__main__":
     unittest.main()

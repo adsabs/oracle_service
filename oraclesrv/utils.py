@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from oraclesrv.models import DocMatch
 
-
+re_doi = re.compile(r'\bdoi:\s*(10\.[\d\.]{2,9}/\S+\w)', re.IGNORECASE)
 def get_solr_data(rows, query, fl):
     """
 
@@ -51,6 +51,11 @@ def get_solr_data(rows, query, fl):
     if num_docs > 0:
         current_app.logger.debug('Got {num_docs} records from solr.'.format(num_docs=num_docs))
         for doc in from_solr['response']['docs']:
+            # if there is a pubnote, attempt to extract doi from it
+            if doc.get('pubnote', None):
+                match = re_doi(doc['pubnote'])
+                if match:
+                    doc['doi_pubnote'] = match.group(1)
             if fl == 'bibcode':
                 result.append(doc['bibcode'])
             else:
@@ -107,7 +112,7 @@ def get_solr_data_match(abstract, title, doctype, extra_filter):
 
     try:
         query = query.strip()
-        result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype,doi,identifier,property')
+        result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype,doi,identifier,property,pubnote')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -127,7 +132,7 @@ def get_solr_data_match_doi(doi, doctype):
         # also remove the doctype, if there is a doi, just query doi for now
         # query = 'doi:"{doi}" doctype:({doctype}) property:REFEREED'.format(doi=doi, doctype=doctype)
         query = 'identifier:({doi})'.format(doi=doi)
-        result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier,property')
+        result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier,property,pubnote')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -164,7 +169,7 @@ def get_solr_data_match_doctype_case(author, year, doctype):
         else:
             author_norm = '{}, {}'.format(author[0].strip(), author[1].strip()[0]).lower()
         query = 'author_norm:"{author}" year:{year_filter} doctype:({doctype})'.format(author=author_norm, year_filter=year_filter, doctype=doctype)
-        result, status_code = get_solr_data(rows=3, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier')
+        result, status_code = get_solr_data(rows=3, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier,pubnote')
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr': '%d: %s' % (e.response.status_code, e.response.reason)}
@@ -282,16 +287,11 @@ def query_docmatch(params):
     try:
 
         with current_app.session_scope() as session:
-            # setup subquery to extract the published records with the highest confidence
-            highest_confidence = session.query(DocMatch.pub_bibcode, func.max(DocMatch.confidence).label('confidence')) \
-                .order_by(DocMatch.pub_bibcode.asc()).group_by(DocMatch.pub_bibcode).distinct() \
-                .offset(params['start']).limit(params['rows']).subquery()
             # get full records with the highest confidence
             result = session.query(DocMatch.eprint_bibcode, DocMatch.pub_bibcode, DocMatch.confidence, DocMatch.date) \
-                .filter(and_(DocMatch.pub_bibcode == highest_confidence.c.pub_bibcode,
-                             DocMatch.confidence == highest_confidence.c.confidence,
-                             DocMatch.date >= params['date_cutoff'])) \
-                .order_by(DocMatch.pub_bibcode.asc()).all()
+                .filter(and_(DocMatch.confidence > 0, DocMatch.date >= params['date_cutoff'])) \
+                .order_by(DocMatch.pub_bibcode.asc()) \
+                .offset(params['start']).limit(params['rows']).all()
 
             if len(result) > 0:
                 # remove the last field, which is datetime, is not needed to be returned
