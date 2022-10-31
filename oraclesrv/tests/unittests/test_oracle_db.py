@@ -227,8 +227,6 @@ class TestDatabase(TestCaseDatabase):
             {'source_bibcode': '2021arXiv210312030S', 'matched_bibcode': '2021CSF...15311505S', 'confidence': 0.9829099},
             {'source_bibcode': '2017arXiv171111082H', 'matched_bibcode': '2018ConPh..59...16H', 'confidence': 0.9877064},
             {'source_bibcode': '2018arXiv181105526S', 'matched_bibcode': '2022NuPhB.98015830S', 'confidence': 0.97300124},
-            {'source_bibcode': '2022arXiv220806634B', 'matched_bibcode': '2022MNRAS.tmp.2065R', 'confidence': 0.9863155},
-            {'source_bibcode': '2022arXiv220807057B', 'matched_bibcode': '2021JHEP...10..058B', 'confidence': 0.7762166},
             {'source_bibcode': '2021arXiv210614498B', 'matched_bibcode': '2021JHEP...10..058B', 'confidence': 0.9938304},
             {'source_bibcode': '2022arXiv220806634R', 'matched_bibcode': '2022MNRAS.tmp.2065R', 'confidence': 0.994127},
             {'source_bibcode': '2022arXiv220700058R', 'matched_bibcode': '2022ApJ...935...54R', 'confidence': 0.9939186},
@@ -238,7 +236,7 @@ class TestDatabase(TestCaseDatabase):
         for match in matches:
             add_a_record(match)
 
-        all_with_high_confidence = [
+        expected_results = [
             ('2017arXiv171111082H', '2018ConPh..59...16H', 0.9877064),
             ('2021arXiv210312030S', '2021CSF...15311505S', 0.9829099),
             ('2021arXiv210614498B', '2021JHEP...10..058B', 0.9938304),
@@ -251,14 +249,16 @@ class TestDatabase(TestCaseDatabase):
 
         # test all unique records are returned
         result, status_code = query_docmatch({'start': 0, 'rows':10, 'date_cutoff': get_date('1972/01/01 00:00:00')})
+        for r in result:
+            print(r)
         self.assertEqual(status_code, 200)
-        self.assertEqual(result, all_with_high_confidence)
+        self.assertEqual(result, expected_results)
 
         # now test returning a page a time
         for i in range(0, len(matches), 2):
             result, status_code = query_docmatch({'start': i, 'rows': 2, 'date_cutoff': get_date('1972/01/01 00:00:00')})
             self.assertEqual(status_code, 200)
-            self.assertEqual(result, all_with_high_confidence[i:i+2])
+            self.assertEqual(result, expected_results[i:i+2])
 
         # do one iteration and see it returns 0 records
         result, status_code = query_docmatch({'start': len(matches), 'rows': 2, 'date_cutoff': get_date('1972/01/01 00:00:00')})

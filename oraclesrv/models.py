@@ -12,7 +12,7 @@ class DocMatch(Base):
     __tablename__ = 'docmatch'
     eprint_bibcode = Column(String, primary_key=True)
     pub_bibcode = Column(String, primary_key=True)
-    confidence = Column(Float, primary_key=True)
+    confidence = Column(Float, primary_key=False)
     date = Column(DateTime, default=func.now())
 
     re_eprint_bibstems = re.compile(r'^(\d\d\d\d(?:arXiv|acc.phys|adap.org|alg.geom|ao.sci|astro.ph|atom.ph|bayes.an|chao.dyn|chem.ph|cmp.lg|comp.gas|cond.mat|cs|dg.ga|funct.an|gr.qc|hep.ex|hep.lat|hep.ph|hep.th|math|math.ph|mtrl.th|nlin|nucl.ex|nucl.th|patt.sol|physics|plasm.ph|q.alg|q.bio|quant.ph|solv.int|supr.con))')
