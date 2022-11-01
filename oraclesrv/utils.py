@@ -53,7 +53,7 @@ def get_solr_data(rows, query, fl):
         for doc in from_solr['response']['docs']:
             # if there is a pubnote, attempt to extract doi from it
             if doc.get('pubnote', None):
-                match = re_doi(doc['pubnote'])
+                match = re_doi.search(' '.join(doc['pubnote']))
                 if match:
                     doc['doi_pubnote'] = match.group(1)
             if fl == 'bibcode':
