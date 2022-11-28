@@ -122,7 +122,7 @@ class DocMatching(object):
                 return self.create_and_return_response([], query, 'status code: %d' % solr_status_code)
         # got records from solr, see if we can get a match
         else:
-            match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)
+            match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, self.doi, results)
             if len(match) > 0:
                 return self.create_and_return_response(match, query, comment)
             # otherwise if no match with abstract, and we think we should have this in solr
