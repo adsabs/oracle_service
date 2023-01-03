@@ -566,12 +566,12 @@ class test_oracle(TestCaseDatabase):
         """
         r = self.client.post(path='/query')
         result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192]]})
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192], ['2022arXiv221016332G', '2023A&A...669A...7G', 0.9859276]]})
 
         # set the rows to a larger number and see that it is reset
         r = self.client.post(path='/query', data=json.dumps({'rows': 3000, 'start': 0}))
         result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192]]})
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192], ['2022arXiv221016332G', '2023A&A...669A...7G', 0.9859276]]})
 
     def test_get_matches(self):
         """
@@ -661,6 +661,56 @@ class test_oracle(TestCaseDatabase):
                                         'confidence': 0.9911571,
                                         'matched': 1,
                                         'scores': {'abstract': None, 'title': 1.0, 'author': 1, 'year': 1, 'doi': 1}})
+
+    def test_get_match_for_doi_in_pubnote(self):
+        """
+        Tests docmatch endpoint using metadata doi in pubnote to query solr
+        """
+        # the mock is for solr call
+        with mock.patch.object(self.current_app.client, 'get') as get_mock:
+            get_mock.return_value = mock_response = mock.Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                'responseHeader': {
+                    'status': 0,
+                    'QTime': 2,
+                    'params': {
+                        'q':'pubnote:(\'10.1051/0004-6361/202245034\')',
+                        'fl':'bibcode,abstract,title,author_norm,year,doctype,identifier,pubnote',
+                        '_':'1672772461790'
+                    }
+                },
+                'response': {
+                    u'numFound': 1,
+                    u'start': 0,
+                    u'docs': [{u'bibcode': u'2022arXiv221016332G',
+                               u'abstract': u'Context. The ZOA does not allow clear optical observations of extragalactic sources behind the Milky Way due to the meaningful extinction of the optical emission of these objects. The observations in NIR wavelengths represent a potential source of astronomical discoveries supporting the detection of new galaxies, completing the picture of the large scale structure in this still little explored area of the sky. Aims. Our aim is to decipher the nature of the overdensity located behind the Milky Way, in the tile b204 of the VVV survey. Methods. We studied an area of six arcmin around a galaxy concentration located at l = 354.82° and b = -9.81°. We selected five galaxies taking into account the source distribution on the sky, in order to optimise the requested time for the observations, and we obtained the spectra with Flamingos 2 long-slit spectrograph at Gemini South 8.1-meter telescope. To identify and characterise the absorption features we have fitted the galaxies underlying spectrum using the starlight code together with the IRTF stellar library. In addition, the spectroscopic findings are reinforced using complementary photometric techniques such as red-sequence and photometric redshift estimation. Results. The mean spectroscopic redshift estimated from the NIR spectra is z = 0.225 +- 0.014. This value presents a good agreement with that obtained from photometric analysis, photoz = 0.21 +- 0.08, and the probability distribution function of the galaxies in the studied region. Also, the red-sequence slope is consistent with the one expected for NIR observations of galaxy clusters. Conclusions. The redshifts obtained from both, photometric and spectroscopic techniques are in good agreement allowing the confirmation of the nature of this structure at z = 0.225 +- 0.014, unveiling a new galaxy cluster, VVVGCl-B J181435-381432, behind the Milky Way bulge.',
+                               u'author_norm':[u'Galdeano, D', u'Ferrero, G', u'Coldwell, G', u'Duplancic, F', u'Alonso, S', u'Riffel, R', u'Minniti, D'],
+                               u'doctype': u'eprint',
+                               u'identifier':[u'2022arXiv221016332G', u'arXiv:2210.16332'],
+                               u'pubnote': [u'8 pages, 6 figures; A&amp;A 669, A7 (2023); doi:10.1051/0004-6361/202245034'],
+                               u'title':[u'Unveiling a new structure behind the Milky Way'],
+                               u'year': u'2022'}]
+                }
+            }
+            # this bibcode actually does have abstract, for test purposes, for testing with no abstract and match
+            data = {"abstract": "Context. The zone of avoidance (ZoA) does not allow for clear optical observations of extragalactic sources behind the Milky Way due to the meaningful extinction of the optical emission of these objects. Observations in near-infrared (NIR) wavelengths represent a potential source of astronomical discoveries that support the detection of new galaxies and potentially complete the picture of the large-scale structures in this as-yet poorly explored area of the sky. <BR /> Aims: Our aim is to decipher the nature of the overdensity located behind the Milky Way in tile b204 of the VISTA Variables in V&iacute;a L&aacute;ctea (VVV) survey. <BR /> Methods: We studied an area of six arcmin around a galaxy concentration located at l = 354.82&deg; and b = &dash;9.81&deg;. We selected five galaxies, taking into account the source distribution on the sky to optimise the requested time for the observations, and we obtained the spectra with Flamingos 2 long-slit spectrograph at Gemini South 8.1-meter telescope. To identify and characterise the absorption features, we fit the galaxies underlying spectrum using the STARLIGHT code together with the IRTF stellar library. In addition, the spectroscopic findings are reinforced using complementary photometric techniques such as red-sequence and photometric redshift estimation. <BR /> Results: The mean spectroscopic redshift estimated from the NIR spectra is z = 0.225 &plusmn; 0.014. This value presents a good agreement with that obtained from photometric analysis, photoz = 0.21 &plusmn; 0.08, and the probability distribution function of the galaxies in the studied region. Also, the red-sequence slope is consistent with the one expected for NIR observations of galaxy clusters. <BR /> Conclusions: The redshifts obtained from both, photometric and spectroscopic techniques are in good agreement, allowing for the confirmation of the nature of this structure at z = 0.225 &plusmn; 0.014, thereby unveiling a new galaxy cluster, VVVGCl-B J181435-381432, behind the Milky Way bulge.",
+                    "title": "Unveiling a new extragalactic structure hidden by the Milky Way",
+                    "author": "Galdeano, D; Ferrero, G; Coldwell, G; Duplancic, F; Alonso, S; Riffel, R; Minniti, D",
+                    "year": "2023",
+                    "doctype": "article",
+                    "bibcode": "2023A&A...669A...7G",
+                    "doi": ["10.1051/0004-6361/202245034"],
+                    "mustmatch": False,
+                    "match_doctype": None}
+            r= self.client.post(path='/docmatch', data=json.dumps(data))
+            result = json.loads(r.data)
+            self.assertEqual(result['query'],
+                             'pubnote:("10.1051/0004-6361/202245034")')
+            self.assertEqual(result['match'],
+                             [{'source_bibcode': '2023A&A...669A...7G', 'matched_bibcode': '2022arXiv221016332G',
+                               'confidence': 0.9859276, 'matched': 1,
+                               'scores': {'abstract': 0.98, 'title': 0.65, 'author': 1, 'year': 1, 'doi': 1}}])
 
 
 if __name__ == "__main__":

@@ -140,6 +140,23 @@ def get_solr_data_match_doi(doi, doctype):
 
     return result, query, status_code
 
+def get_solr_data_match_pubnote(doi):
+    """
+    query pubnote for doi
+
+    :param doi:
+    :return:
+    """
+    try:
+        query = 'pubnote:({doi})'.format(doi=doi)
+        result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier,property,pubnote')
+    except requests.exceptions.HTTPError as e:
+        current_app.logger.error(e)
+        result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
+        status_code = e.response.status_code
+
+    return result, query, status_code
+
 def get_solr_data_match_doctype_case(author, year, doctype):
     """
 
@@ -297,7 +314,7 @@ def query_docmatch(params):
                              DocMatch.date >= params['date_cutoff'])) \
                 .order_by(DocMatch.pub_bibcode.asc()).all()
             if len(result) > 0:
-                # remove the last field, which is datetime, is not needed to be returned
+                # remove the last field, which is datetime, it is not needed to be returned
                 result = [r[0:3] for r in result]
             return result, 200
         return [], 200
