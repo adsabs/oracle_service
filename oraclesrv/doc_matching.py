@@ -1,6 +1,6 @@
 from flask import current_app
 
-from oraclesrv.utils import get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_doctype_case
+from oraclesrv.utils import get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_doctype_case, get_solr_data_match_pubnote
 from oraclesrv.score import clean_data, get_matches, encode_author, format_author, get_doi_match
 from oraclesrv.utils import add_a_record
 
@@ -99,6 +99,31 @@ class DocMatching(object):
             current_app.logger.debug('No result from solr with DOI %s.' % self.doi)
             comment += ' No result from solr with DOI %s.' % self.doi
         
+        return None, comment
+
+    def query_pubnote(self, comment):
+        """
+        query pubnote for the doi
+
+        :param comment:
+        :return:
+        """
+        doi_filter = '"%s"' % '" OR "'.join(self.doi)
+        current_app.logger.debug('with parameter: pubnote=({doi})'.format(doi='"%s"' % '" OR "'.join(self.doi)))
+        results, query, solr_status_code = get_solr_data_match_pubnote(doi_filter)
+        # if any records from solr
+        # compute the score, if score is 0 doi was wrong, so continue on to query using similar
+        if isinstance(results, list) and len(results) > 0:
+            match = get_doi_match(self.source_bibcode, self.abstract, self.title, self.author, self.year, self.doi, results)
+            if match:
+                return self.create_and_return_response(match, query), ''
+            else:
+                current_app.logger.debug('No matches with DOI %s in pubnote, trying Abstract.' % self.doi)
+                comment += ' No matches with DOI %s in pubnote, trying Abstract.' % self.doi
+        else:
+            current_app.logger.debug('No result from solr with DOI %s in pubnote.' % self.doi)
+            comment += ' No result from solr with DOI %s in pubnote.' % self.doi
+
         return None, comment
 
     def query_abstract_or_title(self, comment):
@@ -214,9 +239,12 @@ class DocMatching(object):
                 self.save_match(result)
                 return result
         # if doi is available on the side of publisher metadata
-        # need to query pubnote that right now is not possible 10/31/2022
+        # query pubnote
         elif self.doi:
-            pass
+            result, comment = self.query_pubnote(comment)
+            if result:
+                self.save_match(result)
+                return result
 
         current_app.logger.debug('with parameters: abstract={abstract}, title={title}, author={author}, year={year}, doctype={doctype}'.format(
             abstract=self.abstract[:100]+'...', title=self.title, author=self.author, year=self.year, doctype=self.doctype))
