@@ -85,14 +85,36 @@ def get_solr_data_recommend(function, reader, rows=5, sort='entry_date', cutoff_
     return result, query, status_code
 
 
+def filter_similar_doctypes(results, doctype):
+    """
+
+    :param results:
+    :param doctype:
+    :return:
+    """
+    doctype_classes = [['eprint'], ['article', 'inproceedings', 'inbook', 'phdthesis', 'mastersthesis', 'erratum']]
+
+    filtered_results = []
+    for result in results:
+        the_same = False
+        for doctype_class in doctype_classes:
+            if result['doctype'] in doctype_class and doctype in doctype_class:
+                the_same = True
+                break
+        if the_same:
+            continue
+        filtered_results.append(result)
+    return filtered_results
+
 re_hyphenated_word = re.compile(r'\w+\-\w+\s*')
 re_punctuation = re.compile(r'[^\w\s]')
-def get_solr_data_match(abstract, title, doctype, extra_filter):
+def get_solr_data_match(abstract, title, doctype, match_doctype, extra_filter):
     """
 
     :param abstract:
     :param title:
     :param doctype:
+    :param match_doctype:
     :param extra_filter:
     :return:
     """
@@ -101,18 +123,19 @@ def get_solr_data_match(abstract, title, doctype, extra_filter):
     if len(abstract) > 0  and not abstract.lower().startswith('not available'):
         # there is a limit on number of characters that can be send
         abstract = abstract[:2500]
-        query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 1, 1)) doctype:({doctype}) {extra_filter}'.format(rows=rows,
-                          abstract=abstract, number_matched_terms_abstract=max(1, int(abstract.count(' ') * 0.3)), doctype=doctype, extra_filter=extra_filter)
+        query = 'topn({rows}, similar("{abstract}", input abstract, {number_matched_terms_abstract}, 1, 1)) doctype:({match_doctype}) {extra_filter}'.format(rows=rows,
+                          abstract=abstract, number_matched_terms_abstract=max(1, int(abstract.count(' ') * 0.3)), match_doctype=match_doctype, extra_filter=extra_filter)
     elif len(title) > 0:
         title = re_punctuation.sub('', re_hyphenated_word.sub('', title)).strip()
-        query = 'topn({rows}, similar("{title}", input title, {number_matched_terms_title}, 1, 1)) doctype:({doctype}) {extra_filter}'.format(rows=rows,
-                          title=title, number_matched_terms_title=max(1, int(title.count(' ') * 0.9)), doctype=doctype, extra_filter=extra_filter)
+        query = 'topn({rows}, similar("{title}", input title, {number_matched_terms_title}, 1, 1)) doctype:({match_doctype}) {extra_filter}'.format(rows=rows,
+                          title=title, number_matched_terms_title=max(1, int(title.count(' ') * 0.9)), match_doctype=match_doctype, extra_filter=extra_filter)
     else:
         return [], '', 200
 
     try:
         query = query.strip()
         result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype,doi,identifier,property,pubnote')
+        result = filter_similar_doctypes(result, doctype)
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -133,6 +156,7 @@ def get_solr_data_match_doi(doi, doctype):
         # query = 'doi:"{doi}" doctype:({doctype}) property:REFEREED'.format(doi=doi, doctype=doctype)
         query = 'identifier:({doi})'.format(doi=doi)
         result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier,property,pubnote')
+        result = filter_similar_doctypes(result, doctype)
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -140,16 +164,18 @@ def get_solr_data_match_doi(doi, doctype):
 
     return result, query, status_code
 
-def get_solr_data_match_pubnote(doi):
+def get_solr_data_match_pubnote(doi, doctype):
     """
     query pubnote for doi
 
     :param doi:
+    :param doctype:
     :return:
     """
     try:
         query = 'pubnote:({doi})'.format(doi=doi)
         result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier,property,pubnote')
+        result = filter_similar_doctypes(result, doctype)
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -157,14 +183,16 @@ def get_solr_data_match_pubnote(doi):
 
     return result, query, status_code
 
-def get_solr_data_match_doctype_case(author, year, doctype):
+def get_solr_data_match_doctype_case(author, year, doctype, match_doctype):
     """
-
-    :param author:
-    :param year:
-    :return:
+    
+    :param author: 
+    :param year: 
+    :param doctype: 
+    :param matched_doctype: 
+    :return: 
     """
-    if 'thesis' in doctype:
+    if 'thesis' in match_doctype:
         year_delta = current_app.config['ORACLE_SERVICE_THESIS_YEAR_DELTA']
         year = int(year)
         year_filter = '[{year_start} TO {year_end}]'.format(year_start=year-year_delta, year_end=year+year_delta)
@@ -185,8 +213,9 @@ def get_solr_data_match_doctype_case(author, year, doctype):
             author_norm = '{}'.format(author[0].strip()).lower()
         else:
             author_norm = '{}, {}'.format(author[0].strip(), author[1].strip()[0]).lower()
-        query = 'author_norm:"{author}" year:{year_filter} doctype:({doctype})'.format(author=author_norm, year_filter=year_filter, doctype=doctype)
+        query = 'author_norm:"{author}" year:{year_filter} doctype:({match_doctype})'.format(author=author_norm, year_filter=year_filter, match_doctype=match_doctype)
         result, status_code = get_solr_data(rows=3, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier,pubnote')
+        result = filter_similar_doctypes(result, doctype)
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr': '%d: %s' % (e.response.status_code, e.response.reason)}
