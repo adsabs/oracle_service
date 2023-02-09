@@ -144,7 +144,6 @@ class test_oracle(TestCaseDatabase):
             account = get_user_info_from_adsws('???')
             self.assertEqual(account, None)
 
-
     def test_readhist_endpoint_adsws_call_exception(self):
         """
         Test readhist endpoint adsws call directly with no session
@@ -505,7 +504,6 @@ class test_oracle(TestCaseDatabase):
         abstract = "\x01An    investigation"
         self.assertEqual(clean_data(abstract), "An investigation")
 
-
     def test_docmatch_endpoint_no_abstract_source(self):
         """
         Tests docmatch endpoint using metadata abstract/title to query solr, when there is no abstract, and we found a match
@@ -557,7 +555,6 @@ class test_oracle(TestCaseDatabase):
                              [{'source_bibcode': '2019arXiv190802041G', 'matched_bibcode': '2020Icar..33613407G',
                                'confidence': 0.8989977, 'matched': 1,
                                'scores': {'abstract': None, 'title': 1.0, 'author': 1, 'year': 1}}])
-
 
     def test_query_endpoint(self):
         """

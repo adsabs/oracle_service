@@ -64,7 +64,7 @@ class DocMatching(object):
         :return: 
         """
         doctype = ';'.join(self.match_doctype)
-        results, query, solr_status_code = get_solr_data_match_doctype_case(self.author, self.year, '"%s"' % '" OR "'.join(self.match_doctype))
+        results, query, solr_status_code = get_solr_data_match_doctype_case(self.author, self.year, self.doctype, '"%s"' % '" OR "'.join(self.match_doctype))
         # if any records from solr
         if isinstance(results, list) and len(results) > 0:
             match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)
@@ -85,7 +85,7 @@ class DocMatching(object):
         """
         doi_filter = '"%s"'%'" OR "'.join(self.doi)
         current_app.logger.debug('with parameter: doi=({doi})'.format(doi='"%s"'%'" OR "'.join(self.doi)))
-        results, query, solr_status_code = get_solr_data_match_doi(doi_filter, self.match_doctype)
+        results, query, solr_status_code = get_solr_data_match_doi(doi_filter, self.doctype)
         # if any records from solr
         # compute the score, if score is 0 doi was wrong, so continue on to query using similar
         if isinstance(results, list) and len(results) > 0:
@@ -110,7 +110,7 @@ class DocMatching(object):
         """
         doi_filter = '"%s"' % '" OR "'.join(self.doi)
         current_app.logger.debug('with parameter: pubnote=({doi})'.format(doi='"%s"' % '" OR "'.join(self.doi)))
-        results, query, solr_status_code = get_solr_data_match_pubnote(doi_filter)
+        results, query, solr_status_code = get_solr_data_match_pubnote(doi_filter, self.doctype)
         # if any records from solr
         # compute the score, if score is 0 doi was wrong, so continue on to query using similar
         if isinstance(results, list) and len(results) > 0:
@@ -133,7 +133,7 @@ class DocMatching(object):
         :return:
         """
         # query solr using similar with abstract
-        results, query, solr_status_code = get_solr_data_match(self.abstract, self.title, self.match_doctype, self.extra_filter)
+        results, query, solr_status_code = get_solr_data_match(self.abstract, self.title, self.doctype, self.match_doctype, self.extra_filter)
         if solr_status_code != 200:
             return self.create_and_return_response([], query, 'status code: %d'%solr_status_code)
 
@@ -142,7 +142,7 @@ class DocMatching(object):
         if len(results) == 0:
             current_app.logger.debug('No result from solr with Abstract, trying Title.')
             comment += ' No result from solr with Abstract, trying Title.'
-            results, query, solr_status_code = get_solr_data_match('', self.title, self.match_doctype, self.extra_filter)
+            results, query, solr_status_code = get_solr_data_match('', self.title, self.doctype, self.match_doctype, self.extra_filter)
             if solr_status_code != 200:
                 return self.create_and_return_response([], query, 'status code: %d' % solr_status_code)
         # got records from solr, see if we can get a match
@@ -155,7 +155,7 @@ class DocMatching(object):
             # so drastically between the arXiv version and the publisher version
             current_app.logger.debug('No matches with Abstract, trying Title.')
             comment += ' No matches with Abstract, trying Title.'
-            results, query, solr_status_code = get_solr_data_match('', self.title, self.match_doctype, self.extra_filter)
+            results, query, solr_status_code = get_solr_data_match('', self.title, self.doctype, self.match_doctype, self.extra_filter)
             if solr_status_code != 200:
                 return self.create_and_return_response([], query, 'status code: %d' % solr_status_code)
 
