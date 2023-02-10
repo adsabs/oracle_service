@@ -85,27 +85,6 @@ def get_solr_data_recommend(function, reader, rows=5, sort='entry_date', cutoff_
     return result, query, status_code
 
 
-def filter_similar_doctypes(results, doctype):
-    """
-
-    :param results:
-    :param doctype:
-    :return:
-    """
-    doctype_classes = [['eprint'], ['article', 'inproceedings', 'inbook', 'phdthesis', 'mastersthesis', 'erratum']]
-
-    filtered_results = []
-    for result in results:
-        the_same = False
-        for doctype_class in doctype_classes:
-            if result['doctype'] in doctype_class and doctype in doctype_class:
-                the_same = True
-                break
-        if the_same:
-            continue
-        filtered_results.append(result)
-    return filtered_results
-
 re_hyphenated_word = re.compile(r'\w+\-\w+\s*')
 re_punctuation = re.compile(r'[^\w\s]')
 def get_solr_data_match(abstract, title, doctype, match_doctype, extra_filter):
@@ -135,7 +114,6 @@ def get_solr_data_match(abstract, title, doctype, match_doctype, extra_filter):
     try:
         query = query.strip()
         result, status_code = get_solr_data(rows, query, fl='bibcode,abstract,title,author_norm,year,doctype,doi,identifier,property,pubnote')
-        result = filter_similar_doctypes(result, doctype)
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -143,20 +121,20 @@ def get_solr_data_match(abstract, title, doctype, match_doctype, extra_filter):
 
     return result, query, status_code
 
-def get_solr_data_match_doi(doi, doctype):
+def get_solr_data_match_doi(doi, doctype, match_doctype):
     """
 
     :param doi:
     :param doctype:
+    :param matched_doctype:
     :return:
     """
     try:
         # remove REFEREED for now, but return the property in the results to used it in scoring
         # also remove the doctype, if there is a doi, just query doi for now
         # query = 'doi:"{doi}" doctype:({doctype}) property:REFEREED'.format(doi=doi, doctype=doctype)
-        query = 'identifier:({doi})'.format(doi=doi)
+        query = 'identifier:({doi}) doctype:({match_doctype})'.format(doi=doi, match_doctype=match_doctype)
         result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier,property,pubnote')
-        result = filter_similar_doctypes(result, doctype)
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -164,18 +142,18 @@ def get_solr_data_match_doi(doi, doctype):
 
     return result, query, status_code
 
-def get_solr_data_match_pubnote(doi, doctype):
+def get_solr_data_match_pubnote(doi, doctype, match_doctype):
     """
     query pubnote for doi
 
     :param doi:
     :param doctype:
+    :param matched_doctype:
     :return:
     """
     try:
-        query = 'pubnote:({doi})'.format(doi=doi)
+        query = 'pubnote:({doi}) doctype:({match_doctype})'.format(doi=doi, match_doctype=match_doctype)
         result, status_code = get_solr_data(rows=1, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier,property,pubnote')
-        result = filter_similar_doctypes(result, doctype)
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr':'%d: %s'%(e.response.status_code, e.response.reason)}
@@ -215,7 +193,6 @@ def get_solr_data_match_doctype_case(author, year, doctype, match_doctype):
             author_norm = '{}, {}'.format(author[0].strip(), author[1].strip()[0]).lower()
         query = 'author_norm:"{author}" year:{year_filter} doctype:({match_doctype})'.format(author=author_norm, year_filter=year_filter, match_doctype=match_doctype)
         result, status_code = get_solr_data(rows=3, query=query, fl='bibcode,doi,abstract,title,author_norm,year,doctype,doi,identifier,pubnote')
-        result = filter_similar_doctypes(result, doctype)
     except requests.exceptions.HTTPError as e:
         current_app.logger.error(e)
         result = {'error from solr': '%d: %s' % (e.response.status_code, e.response.reason)}
@@ -262,6 +239,22 @@ def get_a_record(source_bibcode, matched_bibcode):
             return row.toJSON()
 
     current_app.logger.debug("No record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
+    return None
+
+def get_a_matched_record(source_bibcode):
+    """
+
+    :param source_bibcode:
+    :return:
+    """
+    with current_app.session_scope() as session:
+        docmatch = DocMatch(source_bibcode='0000arXiv.........Z', matched_bibcode=source_bibcode, confidence=-1)
+        row = session.query(DocMatch).filter(DocMatch.pub_bibcode == docmatch.pub_bibcode).order_by(desc(DocMatch.confidence)).first()
+        if row:
+            current_app.logger.debug("Fetched a record with matched bibcode only = %s."  % (source_bibcode))
+            return row.toJSON()
+
+    current_app.logger.debug("No record with a matched bibcode = %s."  % (source_bibcode))
     return None
 
 def add_records(protobuf_docmatches):

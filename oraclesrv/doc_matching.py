@@ -1,7 +1,7 @@
 from flask import current_app
 
 from oraclesrv.utils import get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_doctype_case, get_solr_data_match_pubnote
-from oraclesrv.score import clean_data, get_matches, encode_author, format_author, get_doi_match
+from oraclesrv.score import clean_data, get_matches, encode_author, format_author, get_doi_match, get_db_match
 from oraclesrv.utils import add_a_record
 
 def get_requests_params(payload, param, default_value=None, default_type=str):
@@ -85,7 +85,7 @@ class DocMatching(object):
         """
         doi_filter = '"%s"'%'" OR "'.join(self.doi)
         current_app.logger.debug('with parameter: doi=({doi})'.format(doi='"%s"'%'" OR "'.join(self.doi)))
-        results, query, solr_status_code = get_solr_data_match_doi(doi_filter, self.doctype)
+        results, query, solr_status_code = get_solr_data_match_doi(doi_filter, self.doctype, self.match_doctype)
         # if any records from solr
         # compute the score, if score is 0 doi was wrong, so continue on to query using similar
         if isinstance(results, list) and len(results) > 0:
@@ -110,7 +110,7 @@ class DocMatching(object):
         """
         doi_filter = '"%s"' % '" OR "'.join(self.doi)
         current_app.logger.debug('with parameter: pubnote=({doi})'.format(doi='"%s"' % '" OR "'.join(self.doi)))
-        results, query, solr_status_code = get_solr_data_match_pubnote(doi_filter, self.doctype)
+        results, query, solr_status_code = get_solr_data_match_pubnote(doi_filter, self.doctype, self.match_doctype)
         # if any records from solr
         # compute the score, if score is 0 doi was wrong, so continue on to query using similar
         if isinstance(results, list) and len(results) > 0:
@@ -160,9 +160,18 @@ class DocMatching(object):
                 return self.create_and_return_response([], query, 'status code: %d' % solr_status_code)
 
         # no result from title either
-        if len(results) == 0 :
+        if len(results) == 0:
             current_app.logger.debug('No result from solr with Title.')
             comment += ' No result from solr with Title.'
+
+            # here means no matches were found in solr
+            # this could be also when trying to match with eprint, when the record has already been matched
+            # and not in solr anymore, as a last attempt see if it is in database
+            match = get_db_match(self.source_bibcode)
+            if len(match) > 0:
+                comment += ' Fetched from database.'
+                return self.create_and_return_response(match, query, comment)
+            comment += ' No matches in database either.'
             return self.create_and_return_response(match='', query=query, comment=comment)
 
         match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)

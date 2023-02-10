@@ -13,7 +13,7 @@ import unidecode
 
 from flask import current_app
 
-from oraclesrv.utils import get_a_record
+from oraclesrv.utils import get_a_record, get_a_matched_record
 from oraclesrv.keras_model import KerasModel
 
 confidence_model = KerasModel()
@@ -251,6 +251,18 @@ def get_doi_match(source_bibcode, abstract, title, author, year, doi, matched_do
     results = get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs)
     if len(results) == 1:
         return results
+    return []
+
+def get_db_match(source_bibcode):
+    """
+
+    :param source_bibcode:
+    :return:
+    """
+    matched_doc = get_a_matched_record(source_bibcode)
+    if matched_doc:
+        return [{'source_bibcode': matched_doc['eprint_bibcode'], 'matched_bibcode': matched_doc['pub_bibcode'],
+                  'confidence': matched_doc['confidence'], 'matched': 1, 'scores': {}}]
     return []
 
 def get_illegal_char_regex():

@@ -236,7 +236,7 @@ class test_oracle(TestCaseDatabase):
             self.assertEqual(result['query'],
                              'topn(10, similar("Statistical analysis of Curiosity data shows no evidence for a strong seasonal cycle of Martian methane", input title, 13, 1, 1)) doctype:(article OR inproceedings OR inbook)')
             self.assertEqual(result['comment'],
-                             'No result from solr with Abstract, trying Title. No result from solr with Title.')
+                             'No result from solr with Abstract, trying Title. No result from solr with Title. No matches in database either.')
             self.assertEqual(result['no match'],
                              'no document was found in solr matching the request.')
 
@@ -281,7 +281,7 @@ class test_oracle(TestCaseDatabase):
             # 'doi:"10.1007/JHEP10(2019)244" doctype:(article OR inproceedings OR inbook) property:REFEREED'
             # also remove doctype for now
             self.assertEqual(result['query'],
-                             'identifier:("10.1007/JHEP10(2019)244")')
+                             'identifier:("10.1007/JHEP10(2019)244") doctype:(article OR inproceedings OR inbook)')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190804722C', 'matched_bibcode': '2019JHEP...10..244S',
                                'confidence': 0.8865355, 'matched': 1,
@@ -325,7 +325,7 @@ class test_oracle(TestCaseDatabase):
             r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
-                             'identifier:("10.1007/JHEP06(2019)121")')
+                             'identifier:("10.1007/JHEP06(2019)121") doctype:(article OR inproceedings OR inbook)')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2019arXiv190500882A', 'matched_bibcode': '2019JHEP...06..121A',
                                'confidence': 0.8960806, 'matched': 1,
@@ -703,7 +703,7 @@ class test_oracle(TestCaseDatabase):
             r= self.client.post(path='/docmatch', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
-                             'pubnote:("10.1051/0004-6361/202245034")')
+                             'pubnote:("10.1051/0004-6361/202245034") doctype:(eprint)')
             self.assertEqual(result['match'],
                              [{'source_bibcode': '2023A&A...669A...7G', 'matched_bibcode': '2022arXiv221016332G',
                                'confidence': 0.9859276, 'matched': 1,
