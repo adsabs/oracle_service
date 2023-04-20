@@ -85,3 +85,29 @@ class DocMatch(Base):
             'confidence': self.confidence,
             'date' : self.date,
         }
+
+
+
+class ConfidenceLookup(Base):
+    __tablename__ = 'confidence_lookup'
+    source = Column(String, primary_key=True)
+    confidence = Column(Float, primary_key=False)
+
+    def __init__(self, source, confidence):
+        """
+
+        :param source:
+        :param confidence:
+        """
+        self.source = source
+        self.confidence = confidence
+
+    def toJSON(self):
+        """
+
+        :return: values formatted as python dict
+        """
+        return {
+            'source': self.source,
+            'confidence': self.confidence,
+        }
