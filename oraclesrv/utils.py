@@ -9,7 +9,7 @@ from sqlalchemy import or_, and_, desc, func
 from sqlalchemy.sql import exists
 from sqlalchemy.dialects.postgresql import insert
 
-from oraclesrv.models import DocMatch
+from oraclesrv.models import DocMatch, ConfidenceLookup
 
 re_doi = re.compile(r'\bdoi:\s*(10\.[\d\.]{2,9}/\S+\w)', re.IGNORECASE)
 def get_solr_data(rows, query, fl):
@@ -343,3 +343,35 @@ def query_docmatch(params):
     except SQLAlchemyError as e:
         current_app.logger.error('SQLAlchemy: ' + str(e))
         return [], 404
+
+def query_source_score():
+    """
+
+    :return:
+    """
+    try:
+        with current_app.session_scope() as session:
+            rows = session.query(ConfidenceLookup).all()
+            results = []
+            for row in rows:
+                results.append(row.toJSON())
+            return results, 200
+    except SQLAlchemyError as e:
+        current_app.logger.error('SQLAlchemy: ' + str(e))
+        return [], 404
+
+def lookup_confidence(source):
+    """
+
+    :param source:
+    :return:
+    """
+    try:
+        with current_app.session_scope() as session:
+            row = session.query(ConfidenceLookup.confidence).filter(ConfidenceLookup.source == source).first()
+            if row:
+                return row[0], 200
+            return 0, 400
+    except SQLAlchemyError as e:
+        current_app.logger.error('SQLAlchemy: ' + str(e))
+        return 0, 404

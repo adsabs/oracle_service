@@ -29,8 +29,11 @@ def upgrade():
     )
 
     op.bulk_insert(confidence_lookup_table, [
-        {'source': 'curated match', 'confidence': 1.1},
-        {'source': 'mark as delete', 'confidence': -1},
+        {'source': 'ADS', 'confidence': 1.3},
+        {'source': 'incorrect', 'confidence': -1},
+        {'source': 'author', 'confidence': 1.2},
+        {'source': 'publisher', 'confidence': 1.1},
+        {'source': 'SPIRES', 'confidence': 1.05},
     ])
     # ### end Alembic commands ###
 

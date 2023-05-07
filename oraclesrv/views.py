@@ -14,7 +14,7 @@ from datetime import timedelta
 from adsmsg import DocMatchRecordList
 from google.protobuf.json_format import Parse, ParseError
 
-from oraclesrv.utils import get_solr_data_recommend, add_records, del_records, query_docmatch
+from oraclesrv.utils import get_solr_data_recommend, add_records, del_records, query_docmatch, query_source_score, lookup_confidence
 from oraclesrv.keras_model import create_keras_model
 from oraclesrv.doc_matching import DocMatching, get_requests_params
 
@@ -164,9 +164,36 @@ def read_history_post():
 
     return read_history(payload, the_function, the_reader)
 
+# TODO: set the save param in DocMatching to False
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
 @bp.route('/docmatch', methods=['POST'])
 def docmatch():
+    """
+
+    :return:
+    """
+    current_app.logger.debug('received request to find a match for a document')
+
+    try:
+        payload = request.get_json(force=True)  # post data in json
+    except:
+        payload = dict(request.form)  # post data in form encoding
+
+    if not payload:
+        return return_response(results={'error': 'no information received'}, status_code=400)
+
+    start_time = time.time()
+    results, status_code = DocMatching(payload, save=True).process()
+
+    current_app.logger.debug('docmatching results = %s'%json.dumps(results))
+    current_app.logger.debug('docmatching status_code = %d'%status_code)
+
+    current_app.logger.debug("Matched doc in {duration} ms".format(duration=(time.time() - start_time) * 1000))
+    return return_response(results, status_code)
+
+@advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
+@bp.route('/docmatch_add', methods=['POST'])
+def docmatch_add():
     """
 
     :return:
@@ -189,6 +216,7 @@ def docmatch():
 
     current_app.logger.debug("Matched doc in {duration} ms".format(duration=(time.time() - start_time) * 1000))
     return return_response(results, status_code)
+
 
 @advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
 @bp.route('/add', methods=['PUT'])
@@ -305,4 +333,36 @@ def query():
     # otherwise gets JSON serializable error
     payload['date_cutoff'] = str(payload['date_cutoff'])
     return return_response({'params':payload, 'results':results}, status_code)
+
+@advertise(scopes=[], rate_limit=[1000, 3600 * 24])
+@bp.route('/source_score', methods=['GET'])
+def source_score():
+    """
+
+    :return:
+    """
+    current_app.logger.debug('received request to get the list of source and score')
+
+    results, status_code = query_source_score()
+
+    current_app.logger.debug('source_score results = %s'%json.dumps(results))
+    current_app.logger.debug('source_score status_code = %d'%status_code)
+
+    return return_response({'results':results}, status_code)
+
+@advertise(scopes=[], rate_limit=[1000, 3600 * 24])
+@bp.route('/confidence/<source>', methods=['GET'])
+def confidence(source):
+    """
+
+    :return:
+    """
+    current_app.logger.debug('received request to get confidence score for source name %s'%source)
+
+    score, status_code = lookup_confidence(source)
+
+    current_app.logger.debug('confidence value = %s'%score)
+    current_app.logger.debug('confidence status_code = %d'%status_code)
+
+    return return_response({'confidence':score}, status_code)
 
