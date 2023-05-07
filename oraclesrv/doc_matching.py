@@ -24,10 +24,11 @@ def get_requests_params(payload, param, default_value=None, default_type=str):
 
 class DocMatching(object):
 
-    def __init__(self, payload):
+    def __init__(self, payload, save=True):
         """
 
         :param payload:
+        :param save:
         """
         # read required params
         self.abstract = get_requests_params(payload, 'abstract')
@@ -39,6 +40,7 @@ class DocMatching(object):
         self.mustmatch = get_requests_params(payload, 'mustmatch')
         self.match_doctype = get_requests_params(payload, 'match_doctype', default_type=list)
         self.source_bibcode = get_requests_params(payload, 'bibcode')
+        self.save_to_db = save
 
     def create_and_return_response(self, match, query, comment=None):
         """
@@ -183,14 +185,15 @@ class DocMatching(object):
         :param result:
         :return:
         """
-        if result and result[0].get('match', []):
-            the_match = result[0]['match']
-            # if there is only one record, and the confidence is high enough to be considered a match
-            if len(the_match) == 1 and the_match[0]['matched'] == 1:
-                add_a_record({'source_bibcode': the_match[0]['source_bibcode'],
-                              'matched_bibcode': the_match[0]['matched_bibcode'],
-                              'confidence': the_match[0]['confidence']},
-                             source_bibcode_doctype=self.doctype)
+        if self.save_to_db:
+            if result and result[0].get('match', []):
+                the_match = result[0]['match']
+                # if there is only one record, and the confidence is high enough to be considered a match
+                if len(the_match) == 1 and the_match[0]['matched'] == 1:
+                    add_a_record({'source_bibcode': the_match[0]['source_bibcode'],
+                                  'matched_bibcode': the_match[0]['matched_bibcode'],
+                                  'confidence': the_match[0]['confidence']},
+                                 source_bibcode_doctype=self.doctype)
 
     def process(self):
         """
