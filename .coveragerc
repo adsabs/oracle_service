@@ -1,0 +1,4 @@
+
+[run]
+source = oracle_service
+omit = oraclesrv/test*

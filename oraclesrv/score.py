@@ -261,7 +261,8 @@ def get_db_match(source_bibcode):
     """
     matched_doc = get_a_matched_record(source_bibcode)
     if matched_doc:
-        return [{'source_bibcode': matched_doc['eprint_bibcode'], 'matched_bibcode': matched_doc['pub_bibcode'],
+        matched_bibcode = matched_doc['pub_bibcode'] if source_bibcode != matched_doc['pub_bibcode'] else matched_doc['eprint_bibcode']
+        return [{'source_bibcode': source_bibcode, 'matched_bibcode': matched_bibcode,
                   'confidence': matched_doc['confidence'], 'matched': 1, 'scores': {}}]
     return []
 
@@ -285,13 +286,15 @@ def get_illegal_char_regex():
     return re.compile(u'[%s]' % u''.join(illegal_ranges))
 ILLEGALCHARSREGEX = get_illegal_char_regex()
 
-ILLEGAL_XML = u'([\u0000-\u0008\u000b-\u000c\u000e-\u001f\ufffe-\uffff])' + \
-              u'|' + \
-              u'([%s-%s][^%s-%s])|([^%s-%s][%s-%s])|([%s-%s]$)|(^[%s-%s])' % \
-              (chr(0xd800), chr(0xdbff), chr(0xdc00), chr(0xdfff),
-               chr(0xd800), chr(0xdbff), chr(0xdc00), chr(0xdfff),
-               chr(0xd800), chr(0xdbff), chr(0xdc00), chr(0xdfff),
-              )
+re_illegal_xml = re.compile(u'([\u0000-\u0008\u000b-\u000c\u000e-\u001f\ufffe-\uffff])|' + \
+                            u'([%s-%s][^%s-%s])|([^%s-%s][%s-%s])|([%s-%s]$)|(^[%s-%s])' % \
+                            (chr(0xd800), chr(0xdbff), chr(0xdc00), chr(0xdfff),
+                             chr(0xd800), chr(0xdbff), chr(0xdc00), chr(0xdfff),
+                             chr(0xd800), chr(0xdbff), chr(0xdc00), chr(0xdfff)))
+re_white_space = re.compile(r"\s+")
+re_control_char = re.compile(r"[\x01-\x08\x0B-\x1F\x7F]")
+
+
 def remove_control_chars(input, strict=False):
     """
 
@@ -299,12 +302,12 @@ def remove_control_chars(input, strict=False):
     :param strict:
     :return:
     """
-    input = re.sub(ILLEGAL_XML, "", input)
+    input = re_illegal_xml.sub("", input)
     if not strict:
         # map all whitespace to single blank
-        input = re.sub(r'\s+', ' ', input)
+        input = re_white_space.sub(" ", input)
     # now remove control characters
-    input = re.sub(r"[\x01-\x08\x0B-\x1F\x7F]", "", input)
+    input = re_control_char.sub("", input)
     return input
 
 re_latex_math = re.compile(r'(\$[^$]*\$)')

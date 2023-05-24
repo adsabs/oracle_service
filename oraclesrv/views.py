@@ -114,6 +114,31 @@ def read_history(payload, function, reader):
         return return_response(results={'bibcodes':','.join(bibcodes), 'query':query}, status_code=200)
     return return_response(results={'error': 'no result from solr with status code=%d'%solr_status_code, 'query': query}, status_code=404)
 
+def docmatch(save=True):
+    """
+
+    :param save:
+    :return:
+    """
+    current_app.logger.debug('received request to find a match for a document')
+
+    try:
+        payload = request.get_json(force=True)  # post data in json
+    except:
+        payload = dict(request.form)  # post data in form encoding
+
+    if not payload:
+        return return_response(results={'error': 'no information received'}, status_code=400)
+
+    start_time = time.time()
+    results, status_code = DocMatching(payload, save=save).process()
+
+    current_app.logger.debug('docmatching results = %s'%json.dumps(results))
+    current_app.logger.debug('docmatching status_code = %d'%status_code)
+
+    current_app.logger.debug("Matched doc in {duration} ms".format(duration=(time.time() - start_time) * 1000))
+    return return_response(results, status_code)
+
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
 @bp.route('/readhist/<function>/<reader>', methods=['GET'])
 def read_history_get(function, reader):
@@ -164,59 +189,24 @@ def read_history_post():
 
     return read_history(payload, the_function, the_reader)
 
-# TODO: set the save param in DocMatching to False
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
 @bp.route('/docmatch', methods=['POST'])
-def docmatch():
+def docmatch_post():
     """
 
     :return:
     """
-    current_app.logger.debug('received request to find a match for a document')
-
-    try:
-        payload = request.get_json(force=True)  # post data in json
-    except:
-        payload = dict(request.form)  # post data in form encoding
-
-    if not payload:
-        return return_response(results={'error': 'no information received'}, status_code=400)
-
-    start_time = time.time()
-    results, status_code = DocMatching(payload, save=True).process()
-
-    current_app.logger.debug('docmatching results = %s'%json.dumps(results))
-    current_app.logger.debug('docmatching status_code = %d'%status_code)
-
-    current_app.logger.debug("Matched doc in {duration} ms".format(duration=(time.time() - start_time) * 1000))
-    return return_response(results, status_code)
+    # TODO: set the save param to False
+    return docmatch(save=True)
 
 @advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
 @bp.route('/docmatch_add', methods=['POST'])
-def docmatch_add():
+def docmatch_add_post():
     """
 
     :return:
     """
-    current_app.logger.debug('received request to find a match for a document')
-
-    try:
-        payload = request.get_json(force=True)  # post data in json
-    except:
-        payload = dict(request.form)  # post data in form encoding
-
-    if not payload:
-        return return_response(results={'error': 'no information received'}, status_code=400)
-
-    start_time = time.time()
-    results, status_code = DocMatching(payload).process()
-
-    current_app.logger.debug('docmatching results = %s'%json.dumps(results))
-    current_app.logger.debug('docmatching status_code = %d'%status_code)
-
-    current_app.logger.debug("Matched doc in {duration} ms".format(duration=(time.time() - start_time) * 1000))
-    return return_response(results, status_code)
-
+    return docmatch()
 
 @advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
 @bp.route('/add', methods=['PUT'])

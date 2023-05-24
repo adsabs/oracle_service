@@ -153,7 +153,7 @@ class DocMatching(object):
             if len(match) > 0:
                 return self.create_and_return_response(match, query, comment)
             # otherwise if no match with abstract, and we think we should have this in solr
-            # and thus have a much, try with title, this is the case when abstract has changed
+            # and thus have a much, try with title, this could be the case when abstract has changed
             # so drastically between the arXiv version and the publisher version
             current_app.logger.debug('No matches with Abstract, trying Title.')
             comment += ' No matches with Abstract, trying Title.'
@@ -176,6 +176,7 @@ class DocMatching(object):
             comment += ' No matches in database either.'
             return self.create_and_return_response(match='', query=query, comment=comment)
 
+        # got results with title, see if it can be matched
         match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)
         return self.create_and_return_response(match, query, comment)
 
@@ -214,8 +215,8 @@ class DocMatching(object):
         if not self.match_doctype:
             self.match_doctype = current_app.config['ORACLE_SERVICE_MATCH_DOCTYPE'].get(self.doctype, None)
             if not self.match_doctype:
-                current_app.logger.error('invalid doctype %s'%self.doctype)
-                results = {'error': 'invalid doctype %s' % self.doctype}
+                current_app.logger.error('invalid doctype `%s`'%self.doctype)
+                results = {'error': 'invalid doctype `%s`' % self.doctype}
                 status_code = 400
                 return results, status_code
         else:
