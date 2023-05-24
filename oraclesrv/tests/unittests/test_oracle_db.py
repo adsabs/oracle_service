@@ -5,23 +5,21 @@ if project_home not in sys.path:
 
 import unittest
 import json
+import mock
 
 from adsmutils import get_date
 
-import oraclesrv.app as app
 from oraclesrv.tests.unittests.base import TestCaseDatabase
-from oraclesrv.utils import get_a_record, del_records, add_a_record, query_docmatch
+from oraclesrv.utils import get_a_record, del_records, add_a_record, query_docmatch, query_source_score, lookup_confidence, \
+    get_a_matched_record, query_docmatch, query_source_score, lookup_confidence
 from oraclesrv.score import get_matches, get_doi_match
+from oraclesrv.models import ConfidenceLookup
+
+from sqlalchemy.exc import SQLAlchemyError
+from requests.models import Response
 
 
 class TestDatabase(TestCaseDatabase):
-
-    def create_app(self):
-        '''Start the wsgi application'''
-        self.app = app.create_app(**{
-            'SQLALCHEMY_DATABASE_URI': self.postgresql_url,
-        })
-        return self.app
 
     def add_stub_data(self):
         """
@@ -46,6 +44,30 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(response._status_code, 200)
         self.assertEqual(response.json['status'], 'updated db with new data successfully')
 
+    def add_confidence_lookup_table(self):
+        """
+
+        :return:
+        """
+        confidence_lookup_table = [
+            ConfidenceLookup(source='ADS', confidence=1.3),
+            ConfidenceLookup(source='incorrect', confidence=-1),
+            ConfidenceLookup(source='author', confidence=1.2),
+            ConfidenceLookup(source='publisher', confidence=1.1),
+            ConfidenceLookup(source='SPIRES', confidence=1.05),
+        ]
+        with self.current_app.session_scope() as session:
+            session.bulk_save_objects(confidence_lookup_table)
+            session.commit()
+
+    def delete_confidence_lookup_table(self):
+        """
+
+        :return:
+        """
+        with self.current_app.session_scope() as session:
+            session.query(ConfidenceLookup).delete()
+            session.commit()
 
     def test_get_a_record(self):
         """
@@ -62,7 +84,7 @@ class TestDatabase(TestCaseDatabase):
 
         # query for a record that does not exits
         record = get_a_record('2021arXiv210312030G', '2021CSF...15311505G')
-        self.assertEqual(record, None)
+        self.assertEqual(record, {})
 
     def test_del_records(self):
         """
@@ -264,6 +286,101 @@ class TestDatabase(TestCaseDatabase):
         result, status_code = query_docmatch({'start': len(matches), 'rows': 2, 'date_cutoff': get_date('1972/01/01 00:00:00')})
         self.assertEqual(status_code, 200)
         self.assertEqual(result, [])
+
+    def test_query_source_score(self):
+        """
+
+        :return:
+        """
+        self.add_confidence_lookup_table()
+        expected_results = [
+            {'source': 'ADS', 'confidence': 1.3},
+            {'source': 'incorrect', 'confidence': -1.0},
+            {'source': 'author', 'confidence': 1.2},
+            {'source': 'publisher', 'confidence': 1.1},
+            {'source': 'SPIRES', 'confidence': 1.05}
+        ]
+        results, _ = query_source_score()
+        self.assertEqual(results, expected_results)
+        self.delete_confidence_lookup_table()
+
+    def test_lookup_confidence(self):
+        """
+
+        :return:
+        """
+        self.add_confidence_lookup_table()
+        self.assertEqual(lookup_confidence('ADS'), (1.3, 200))
+        self.assertEqual(lookup_confidence('incorrect'), (-1.0, 200))
+        self.delete_confidence_lookup_table()
+
+    def test_source_score_endpoint(self):
+        """
+        Test the endpoint that lists all available source/score pairs
+        """
+        self.add_confidence_lookup_table()
+        expected_results = [
+            {'source': 'ADS', 'confidence': 1.3},
+            {'source': 'incorrect', 'confidence': -1.0},
+            {'source': 'author', 'confidence': 1.2},
+            {'source': 'publisher', 'confidence': 1.1},
+            {'source': 'SPIRES', 'confidence': 1.05}
+        ]
+        r = self.client.get(path='/source_score')
+        result = json.loads(r.data)
+        self.assertEqual(result['results'], expected_results)
+        self.delete_confidence_lookup_table()
+
+    def test_lookup_confidence_endpoint(self):
+        """
+        Test the endpoint that returns confidence for a source
+        :return:
+        """
+        self.add_confidence_lookup_table()
+        r = self.client.get(path='/confidence/ADS')
+        result = json.loads(r.data)
+        self.assertEqual(result['confidence'], 1.3)
+        r = self.client.get(path='/confidence/incorrect')
+        result = json.loads(r.data)
+        self.assertEqual(result['confidence'], -1.0)
+        self.delete_confidence_lookup_table()
+
+    def test_get_solr_data_exception(self):
+        """
+        Test when there is an SQLAlchemyError exception
+        :return:
+        """
+        with mock.patch.object(self.current_app, 'session_scope') as exception_mock:
+            sql_alchemy_error = SQLAlchemyError('DB not initialized properly, check: SQLALCHEMY_URL')
+            exception_mock.side_effect = sql_alchemy_error
+
+            # exception within add_a_record
+            status, message = add_a_record({})
+            self.assertEqual(status, False)
+            self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
+
+            # exception within get_a_record
+            results = get_a_record(source_bibcode='', matched_bibcode='')
+            self.assertEqual(results, {})
+
+            # exception within get_a_matched_record
+            results = get_a_matched_record(source_bibcode='')
+            self.assertEqual(results, {})
+
+            # exception within query_docmatch
+            result, status_code = query_docmatch({})
+            self.assertEqual(result, [])
+            self.assertEqual(status_code, 404)
+
+            # exception within query_source_score
+            result, status_code = query_source_score()
+            self.assertEqual(result, [])
+            self.assertEqual(status_code, 404)
+
+            # exception within lookup_confidence
+            confidence, status_code = lookup_confidence(source='')
+            self.assertEqual(confidence, 0)
+            self.assertEqual(status_code, 404)
 
 
 if __name__ == "__main__":

@@ -230,16 +230,20 @@ def get_a_record(source_bibcode, matched_bibcode):
     :param matched_bibcode:
     :return:
     """
-    with current_app.session_scope() as session:
-        docmatch = DocMatch(source_bibcode, matched_bibcode, confidence=-1)
-        row = session.query(DocMatch).filter(or_(DocMatch.eprint_bibcode == docmatch.eprint_bibcode,
-                                                 DocMatch.pub_bibcode == docmatch.pub_bibcode)).order_by(desc(DocMatch.confidence)).first()
-        if row:
-            current_app.logger.debug("Fetched a record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
-            return row.toJSON()
+    try:
+        with current_app.session_scope() as session:
+            docmatch = DocMatch(source_bibcode, matched_bibcode, confidence=-1)
+            row = session.query(DocMatch).filter(or_(DocMatch.eprint_bibcode == docmatch.eprint_bibcode,
+                                                     DocMatch.pub_bibcode == docmatch.pub_bibcode)).order_by(desc(DocMatch.confidence)).first()
+            if row:
+                current_app.logger.debug("Fetched a record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
+                return row.toJSON()
 
-    current_app.logger.debug("No record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
-    return None
+        current_app.logger.debug("No record for matched bibcodes = (%s, %s)."  % (source_bibcode, matched_bibcode))
+        return {}
+    except SQLAlchemyError as e:
+        current_app.logger.error('SQLAlchemy: ' + str(e))
+        return {}
 
 def get_a_matched_record(source_bibcode):
     """
@@ -247,15 +251,19 @@ def get_a_matched_record(source_bibcode):
     :param source_bibcode:
     :return:
     """
-    with current_app.session_scope() as session:
-        docmatch = DocMatch(source_bibcode='0000arXiv.........Z', matched_bibcode=source_bibcode, confidence=-1)
-        row = session.query(DocMatch).filter(DocMatch.pub_bibcode == docmatch.pub_bibcode).order_by(desc(DocMatch.confidence)).first()
-        if row:
-            current_app.logger.debug("Fetched a record with matched bibcode only = %s."  % (source_bibcode))
-            return row.toJSON()
+    try:
+        with current_app.session_scope() as session:
+            docmatch = DocMatch(source_bibcode='0000arXiv.........Z', matched_bibcode=source_bibcode, confidence=-1)
+            row = session.query(DocMatch).filter(DocMatch.pub_bibcode == docmatch.pub_bibcode).order_by(desc(DocMatch.confidence)).first()
+            if row:
+                current_app.logger.debug("Fetched a record with matched bibcode only = %s."  % (source_bibcode))
+                return row.toJSON(), 200
 
-    current_app.logger.debug("No record with a matched bibcode = %s."  % (source_bibcode))
-    return None
+        current_app.logger.debug("No record with a matched bibcode = %s."  % (source_bibcode))
+        return {}
+    except SQLAlchemyError as e:
+        current_app.logger.error('SQLAlchemy: ' + str(e))
+        return {}
 
 def add_records(protobuf_docmatches):
     """

@@ -30,7 +30,7 @@ class TestCaseDatabase(TestCase):
 
     def create_app(self):
         '''Start the wsgi application'''
-        a = app.create_app(**{
+        self.current_app = app.create_app(**{
             'SQLALCHEMY_DATABASE_URI': self.postgresql_url,
             'SQLALCHEMY_ECHO': False,
             'TESTING': True,
@@ -38,12 +38,11 @@ class TestCaseDatabase(TestCase):
             'TRAP_BAD_REQUEST_ERRORS': True,
             'RESOLVER_GATEWAY_URL': '/{bibcode}/{link_type}/{url}',
         })
-        return a
+        return self.current_app
 
     @classmethod
     def setUpClass(cls):
-        cls.postgresql = \
-            testing.postgresql.Postgresql(**cls.postgresql_url_dict)
+        cls.postgresql = testing.postgresql.Postgresql(**cls.postgresql_url_dict)
 
     @classmethod
     def tearDownClass(cls):

@@ -7,20 +7,18 @@ sys.path.append(PROJECT_HOME)
 import unittest
 import json
 import mock
+from requests.exceptions import HTTPError
+from requests.models import Response
 
-import oraclesrv.app as app
 from oraclesrv.tests.unittests.base import TestCaseDatabase
 from oraclesrv.views import get_user_info_from_adsws
-from oraclesrv.score import clean_data, get_matches
+from oraclesrv.score import clean_data, get_matches, to_unicode
+from oraclesrv.doc_matching import DocMatching
+from oraclesrv.utils import get_solr_data_recommend, get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_pubnote, \
+    get_solr_data_match_doctype_case
 
 
 class test_oracle(TestCaseDatabase):
-    def create_app(self):
-        self.current_app = app.create_app(**{
-            'TESTING': True,
-            'SQLALCHEMY_DATABASE_URI': self.postgresql_url,
-        })
-        return self.current_app
 
     def test_readhist_endpoint_post(self):
         """
@@ -708,6 +706,57 @@ class test_oracle(TestCaseDatabase):
                              [{'source_bibcode': '2023A&A...669A...7G', 'matched_bibcode': '2022arXiv221016332G',
                                'confidence': 0.9859276, 'matched': 1,
                                'scores': {'abstract': 0.98, 'title': 0.65, 'author': 1, 'year': 1, 'doi': 1}}])
+
+    def test_to_unicode(self):
+        """
+        Test to_unicode in the score module
+        """
+        self.assertEqual(to_unicode(u'A unicode \u018e string \xf1'), 'A unicode Ǝ string ñ')
+
+    def test_docmatching_process(self):
+        """
+        Test DocMatching process function
+        """
+        # when neither title nor abstract is passed in
+        results, status_code = DocMatching(payload={'author':'author here', 'year': 2000, 'doctype': 'eprint'}).process()
+        self.assertEqual(results, {'error': 'the following parameters are required: `abstract` or `title`, `author`, `year`,  and `doctype`'})
+        self.assertEqual(status_code, 400)
+
+        # when doctype is unrecognizable
+        results, status_code = DocMatching(payload={'abstract': 'available', 'title': 'available', 'author': 'available', 'year': 2000, 'doctype': 'unrecognizable'}).process()
+        self.assertEqual(results, {'error': 'invalid doctype `unrecognizable`'})
+        self.assertEqual(status_code, 400)
+
+    def test_sql_alchemy_exception(self):
+        """
+        Test when there is an SQLAlchemyError
+        """
+        with mock.patch('oraclesrv.utils.get_solr_data') as solr_mock:
+            http_error = HTTPError()
+            http_error.response = Response()
+            http_error.response.status_code = 404
+            http_error.response.reason = "not found"
+            solr_mock.side_effect = http_error
+
+            # exception within get_solr_data_recommend
+            result, _, _ = get_solr_data_recommend(function='function to execute', reader='reader id')
+            self.assertEqual(result, {'error from solr': '404: not found'})
+
+            # exception within get_solr_data_match
+            result, _, _ = get_solr_data_match('abstract here', 'title here', doctype='eprint', match_doctype='article', extra_filter='')
+            self.assertEqual(result, {'error from solr': '404: not found'})
+
+            # exception within get_solr_data_match_doi
+            result, _, _ = get_solr_data_match_doi('doi here', doctype='eprint', match_doctype='article')
+            self.assertEqual(result, {'error from solr': '404: not found'})
+
+            # exception within get_solr_data_match_pubnote
+            result, _, _ = get_solr_data_match_pubnote('doi here', doctype='eprint', match_doctype='article')
+            self.assertEqual(result, {'error from solr': '404: not found'})
+
+            # exception within get_solr_data_match_doctype_case
+            result, _, _ = get_solr_data_match_doctype_case('author here', 2000, doctype='eprint', match_doctype='article')
+            self.assertEqual(result, {'error from solr': '404: not found'})
 
 
 if __name__ == "__main__":
