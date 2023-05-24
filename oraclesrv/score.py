@@ -259,7 +259,7 @@ def get_db_match(source_bibcode):
     :param source_bibcode:
     :return:
     """
-    matched_doc, _ = get_a_matched_record(source_bibcode)
+    matched_doc = get_a_matched_record(source_bibcode)
     if matched_doc:
         matched_bibcode = matched_doc['pub_bibcode'] if source_bibcode != matched_doc['pub_bibcode'] else matched_doc['eprint_bibcode']
         return [{'source_bibcode': source_bibcode, 'matched_bibcode': matched_bibcode,

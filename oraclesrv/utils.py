@@ -257,7 +257,7 @@ def get_a_matched_record(source_bibcode):
             row = session.query(DocMatch).filter(DocMatch.pub_bibcode == docmatch.pub_bibcode).order_by(desc(DocMatch.confidence)).first()
             if row:
                 current_app.logger.debug("Fetched a record with matched bibcode only = %s."  % (source_bibcode))
-                return row.toJSON(), 200
+                return row.toJSON()
 
         current_app.logger.debug("No record with a matched bibcode = %s."  % (source_bibcode))
         return {}
