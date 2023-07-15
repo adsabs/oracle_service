@@ -11,12 +11,11 @@ from adsmutils import get_date
 
 from oraclesrv.tests.unittests.base import TestCaseDatabase
 from oraclesrv.utils import get_a_record, del_records, add_a_record, query_docmatch, query_source_score, lookup_confidence, \
-    get_a_matched_record, query_docmatch, query_source_score, lookup_confidence
+    get_a_matched_record, query_docmatch, query_source_score, lookup_confidence, delete_tmp_matches
 from oraclesrv.score import get_matches, get_doi_match
-from oraclesrv.models import ConfidenceLookup
+from oraclesrv.models import DocMatch, ConfidenceLookup
 
 from sqlalchemy.exc import SQLAlchemyError
-from requests.models import Response
 
 
 class TestDatabase(TestCaseDatabase):
@@ -43,6 +42,15 @@ class TestDatabase(TestCaseDatabase):
         response = self.client.put('/add', data=json.dumps(docmatch_records), headers=headers)
         self.assertEqual(response._status_code, 200)
         self.assertEqual(response.json['status'], 'updated db with new data successfully')
+
+    def delete_stub_data(self):
+        """
+
+        :return:
+        """
+        with self.current_app.session_scope() as session:
+            session.query(DocMatch).delete()
+            session.commit()
 
     def add_confidence_lookup_table(self):
         """
@@ -86,6 +94,8 @@ class TestDatabase(TestCaseDatabase):
         record = get_a_record('2021arXiv210312030G', '2021CSF...15311505G')
         self.assertEqual(record, {})
 
+        self.delete_stub_data()
+
     def test_del_records(self):
         """
         test querying db for a record
@@ -117,6 +127,8 @@ class TestDatabase(TestCaseDatabase):
         response = self.client.delete('/delete', data=json.dumps(docmatch_records), headers=headers)
         self.assertEqual(response._status_code, 200)
         self.assertEqual(response.json['status'], 'removed 0 records of 3 requested')
+
+        self.delete_stub_data()
 
     def test_docmatch(self):
         """
@@ -197,6 +209,8 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(len(matches), 0)
         self.assertEqual(matches, [])
 
+        self.delete_stub_data()
+
     def test_docmatch_changed_bibcode(self):
         """
         test when the bibcode saved in db is different from the current match, but the record is the same and needs
@@ -271,8 +285,6 @@ class TestDatabase(TestCaseDatabase):
 
         # test all unique records are returned
         result, status_code = query_docmatch({'start': 0, 'rows':10, 'date_cutoff': get_date('1972/01/01 00:00:00')})
-        for r in result:
-            print(r)
         self.assertEqual(status_code, 200)
         self.assertEqual(result, expected_results)
 
@@ -381,6 +393,60 @@ class TestDatabase(TestCaseDatabase):
             confidence, status_code = lookup_confidence(source='')
             self.assertEqual(confidence, 0)
             self.assertEqual(status_code, 404)
+
+    def test_delete_tmp_matches(self):
+        """
+
+        :return:
+        """
+        # add stub data and verify that there are 3 records in db
+        self.add_stub_data()
+        result, status_code = query_docmatch({'start': 0, 'rows':10, 'date_cutoff': get_date('1972/01/01 00:00:00')})
+        self.assertEqual(status_code, 200)
+        self.assertEqual(len(result), 3)
+
+        # add duplicate matches, one with tmp bibcode and one with canonical bibcode, to the database
+        duplicate_matches = [
+            {
+                'source_bibcode': '2023arXiv230410160K',
+                'matched_bibcode': '2023MNRAS.tmp.1147K',
+                'confidence': 0.9957017
+            },                 {
+                'source_bibcode': '2023arXiv230410160K',
+                'matched_bibcode': '2023MNRAS.522.3648K',
+                'confidence': 0.9957017
+            },
+        ]
+        for match in duplicate_matches:
+            add_a_record(match)
+
+        # verify that there are 5 matches in db
+        result, status_code = query_docmatch({'start': 0, 'rows':10, 'date_cutoff': get_date('1972/01/01 00:00:00')})
+        self.assertEqual(status_code, 200)
+        self.assertEqual(len(result), 5)
+
+        # call delete_tmp_matches to remove tmp bibcode that also have canonical bibcode match
+        # verify that one record was deleted
+        count, status = delete_tmp_matches()
+        self.assertEqual(count, 1)
+        self.assertEqual(status, '')
+
+        # call again and verify that no record was deleted
+        count, status = delete_tmp_matches()
+        self.assertEqual(count, 0)
+        self.assertEqual(status, '')
+
+        # verify that now there are 4 records in the db
+        result, status_code = query_docmatch({'start': 0, 'rows':10, 'date_cutoff': get_date('1972/01/01 00:00:00')})
+        self.assertEqual(status_code, 200)
+        self.assertEqual(len(result), 4)
+
+        # verify that the tmp bibcode does not exists in db anymore, only the canonical
+        result = get_a_record(source_bibcode='2023arXiv230410160K', matched_bibcode='2023MNRAS.tmp.1147K')
+        self.assertNotEquals(result['pub_bibcode'], '2023MNRAS.tmp.1147K')
+        self.assertEquals(result['pub_bibcode'], '2023MNRAS.522.3648K')
+
+        self.delete_stub_data()
 
 
 if __name__ == "__main__":

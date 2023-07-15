@@ -8,6 +8,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import or_, and_, desc, func
 from sqlalchemy.sql import exists
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import aliased
+from sqlalchemy import func
+
+from sqlalchemy import text
 
 from oraclesrv.models import DocMatch, ConfidenceLookup
 
@@ -383,3 +387,24 @@ def lookup_confidence(source):
     except SQLAlchemyError as e:
         current_app.logger.error('SQLAlchemy: ' + str(e))
         return 0, 404
+
+def delete_tmp_matches():
+    """
+    if there are tmp matches plus the canonical matches, remove tmp matches
+
+    :return:
+    """
+    try:
+        with current_app.session_scope() as session:
+            # get the list of multiples
+            multiples = session.query(DocMatch.eprint_bibcode, DocMatch.confidence, func.count('*').label('count')) \
+                .group_by(DocMatch.eprint_bibcode, DocMatch.confidence).having(func.count('*') > 1).subquery()
+            # now remove multiple rows that is a tmp bibcode
+            count = session.query(DocMatch).filter(
+                and_(DocMatch.eprint_bibcode == multiples.c.eprint_bibcode, DocMatch.confidence == multiples.c.confidence, DocMatch.pub_bibcode.like('%.tmp.%'))) \
+                .delete(synchronize_session=False)
+            session.commit()
+            return count, ''
+    except SQLAlchemyError as e:
+        current_app.logger.error('SQLAlchemy: ' + str(e))
+        return -1, 'SQLAlchemy: ' + str(e)

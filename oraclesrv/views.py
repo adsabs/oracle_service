@@ -14,7 +14,7 @@ from datetime import timedelta
 from adsmsg import DocMatchRecordList
 from google.protobuf.json_format import Parse, ParseError
 
-from oraclesrv.utils import get_solr_data_recommend, add_records, del_records, query_docmatch, query_source_score, lookup_confidence
+from oraclesrv.utils import get_solr_data_recommend, add_records, del_records, query_docmatch, query_source_score, lookup_confidence, delete_tmp_matches
 from oraclesrv.keras_model import create_keras_model
 from oraclesrv.doc_matching import DocMatching, get_requests_params
 
@@ -356,3 +356,15 @@ def confidence(source):
 
     return return_response({'confidence':score}, status_code)
 
+@advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
+@bp.route('/cleanup', methods=['POST'])
+def cleanup():
+    """
+
+    :return:
+    """
+    count, status = delete_tmp_matches()
+    if count >= 0:
+        return return_response({'message':'successfully removed %d matches having tmp bibcode while matches with canonical bibcode exists.'%count}, 200)
+    else:
+        return return_response({'message':'unable to perform the cleanup, ERROR: %s'%status}, 400)
