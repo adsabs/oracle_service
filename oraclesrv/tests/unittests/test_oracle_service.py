@@ -12,7 +12,7 @@ from requests.exceptions import HTTPError
 from requests.models import Response
 
 from oraclesrv.tests.unittests.base import TestCaseDatabase
-from oraclesrv.views import get_user_info_from_adsws, cleanup
+from oraclesrv.views import get_user_info_from_adsws, cleanup, list_tmps, list_multis
 from oraclesrv.score import clean_metadata, get_matches, to_unicode
 from oraclesrv.doc_matching import DocMatching
 from oraclesrv.utils import get_solr_data_recommend, get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_pubnote, \
@@ -196,7 +196,7 @@ class test_oracle(TestCaseDatabase):
                     "author":"Gillen, Ed; Rimmer, Paul B; Catling, David C",
                     "year":"2020",
                     "doctype":"eprint"}
-            r= self.client.post(path='/docmatch', data=json.dumps(data))
+            r= self.client.post(path='/docmatch_add', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'topn(10, similar("Using Gaussian Process regression to analyze the Martian surface methane Tunable Laser Spectrometer (TLS) data reported by Webster (2018), we find that the TLS data, taken as a whole, are not statistically consistent with seasonal variability. The subset of data derived from an enrichment protocol of TLS, if considered in isolation, are equally consistent with either stochastic processes or periodic variability, but the latter does not favour seasonal variation.", input abstract, 20, 1, 1)) doctype:(article OR inproceedings OR inbook)')
@@ -230,7 +230,7 @@ class test_oracle(TestCaseDatabase):
                     "author":"Gillen, Ed; Rimmer, Paul B; Catling, David C",
                     "year":"2020",
                     "doctype":"eprint"}
-            r= self.client.post(path='/docmatch', data=json.dumps(data))
+            r= self.client.post(path='/docmatch_add', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'topn(10, similar("Statistical analysis of Curiosity data shows no evidence for a strong seasonal cycle of Martian methane", input title, 13, 1, 1)) doctype:(article OR inproceedings OR inbook)')
@@ -274,7 +274,7 @@ class test_oracle(TestCaseDatabase):
                     "year": "2019",
                     "doi": ["10.1007/JHEP10(2019)244"],
                     "doctype":"eprint"}
-            r= self.client.post(path='/docmatch', data=json.dumps(data))
+            r= self.client.post(path='/docmatch_add', data=json.dumps(data))
             result = json.loads(r.data)
             # since some records do not have REFEREED removed this filter for now from the doi query
             # 'doi:"10.1007/JHEP10(2019)244" doctype:(article OR inproceedings OR inbook) property:REFEREED'
@@ -321,7 +321,7 @@ class test_oracle(TestCaseDatabase):
                     "year": "2019",
                     "doi": ["10.1007/JHEP06(2019)121"],
                     "doctype":"eprint"}
-            r= self.client.post(path='/docmatch', data=json.dumps(data))
+            r= self.client.post(path='/docmatch_add', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'identifier:("10.1007/JHEP06(2019)121") doctype:(article OR inproceedings OR inbook)')
@@ -363,7 +363,7 @@ class test_oracle(TestCaseDatabase):
                     "author": u"Riedinger, Ralf; Wallucks, Andreas; Marinkovic, Igor; L\xf6schnauer, Clemens; Aspelmeyer, Markus; Hong, Sungkun; Gr\xf6blacher, Simon",
                     "year": "2017",
                     "doctype":"eprint"}
-            r= self.client.post(path='/docmatch', data=json.dumps(data))
+            r= self.client.post(path='/docmatch_add', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'topn(10, similar("Entanglement, an essential feature of quantum theory that allows forinseparable quantum correlations to be shared between distant parties, is acrucial resource for quantum networks. Of particular importance is the abilityto distribute entanglement between remote objects that can also serve asquantum memories. This has been previously realized using systems such as warmand cold atomic vapours, individual atoms and ions, and defects in solid-statesystems. Practical communication applications require a combination of severaladvantageous features, such as a particular operating wavelength, highbandwidth and long memory lifetimes. Here we introduce a purely micromachinedsolid-state platform in the form of chip-based optomechanical resonators madeof nanostructured silicon beams. We create and demonstrate entanglement betweentwo micromechanical oscillators across two chips that are separated by 20centimetres. The entangled quantum state is distributed by an optical field ata designed wavelength near 1550 nanometres. Therefore, our system can bedirectly incorporated in a realistic fibre-optic quantum network operating inthe conventional optical telecommunication band. Our results are an importantstep towards the development of large-area quantum networks based on siliconphotonics.", input abstract, 49, 1, 1)) doctype:(article OR inproceedings OR inbook)')
@@ -404,7 +404,7 @@ class test_oracle(TestCaseDatabase):
                     "abstract": "In light of substantial new discoveries of hot subdwarfs by ongoing spectroscopic surveys and the availability of new all-sky data from ground-based photometric surveys and the Gaia mission Data Release 2, we compiled an updated catalogue of the known hot subdwarf stars. The catalogue contains 5874 unique sources including 528 previously unknown hot subdwarfs and provides multi-band photometry, astrometry from Gaia, and classifications based on spectroscopy and colours. This new catalogue provides atmospheric parameters of 2187 stars and radial velocities of 2790 stars from the literature. Using colour, absolute magnitude, and reduced proper motion criteria, we identified 268 previously misclassified objects, most of which are less luminous white dwarfs or more luminous blue horizontal branch and main-sequence stars. <P />The catalogues are only available at the CDS via anonymous ftp to <A href=\'http://cdsarc.u-strasbg.fr/\'>http://cdsarc.u-strasbg.fr</A> (ftp://130.79.128.5) or via <A href=\'http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193\'>http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193</A>",
                     "author": "Geier, S.",
                     "doctype":"eprint"}
-            r= self.client.post(path='/docmatch', data=json.dumps(data))
+            r= self.client.post(path='/docmatch_add', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'topn(10, similar("In light of substantial new discoveries of hot subdwarfs by ongoing spectroscopic surveys and the availability of new all-sky data from ground-based photometric surveys and the Gaia mission Data Release 2, we compiled an updated catalogue of the known hot subdwarf stars. The catalogue contains 5874 unique sources including 528 previously unknown hot subdwarfs and provides multi-band photometry, astrometry from Gaia, and classifications based on spectroscopy and colours. This new catalogue provides atmospheric parameters of 2187 stars and radial velocities of 2790 stars from the literature. Using colour, absolute magnitude, and reduced proper motion criteria, we identified 268 previously misclassified objects, most of which are less luminous white dwarfs or more luminous blue horizontal branch and main-sequence stars. <P />The catalogues are only available at the CDS via anonymous ftp to <A href=\'http://cdsarc.u-strasbg.fr/\'>http://cdsarc.u-strasbg.fr</A> (ftp://130.79.128.5) or via <A href=\'http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193\'>http://cdsarc.u-strasbg.fr/viz-bin/cat/J/A+A/635/A193</A>", input abstract, 41, 1, 1)) doctype:(article OR inproceedings OR inbook)')
@@ -449,7 +449,7 @@ class test_oracle(TestCaseDatabase):
                     "year": "2018",
                     "doctype": "eprint",
                     "doi": None}
-            r= self.client.post(path='/docmatch', data=json.dumps(data))
+            r= self.client.post(path='/docmatch_add', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'author_norm:"zheng, b" year:[2013 TO 2023] doctype:("phdthesis" OR "mastersthesis")')
@@ -487,7 +487,7 @@ class test_oracle(TestCaseDatabase):
                     "year": "2018",
                     "doctype": "eprint",
                     "doi": None}
-            r= self.client.post(path='/docmatch', data=json.dumps(data))
+            r= self.client.post(path='/docmatch_add', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'author_norm:"zheng, b" year:[2013 TO 2023] doctype:("phdthesis" OR "mastersthesis")')
@@ -546,7 +546,7 @@ class test_oracle(TestCaseDatabase):
                     "author":"Gillen, Ed; Rimmer, Paul B; Catling, David C",
                     "year":"2020",
                     "doctype":"eprint"}
-            r= self.client.post(path='/docmatch', data=json.dumps(data))
+            r= self.client.post(path='/docmatch_add', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'topn(10, similar("Statistical analysis of Curiosity data shows no evidence for a strong seasonal cycle of Martian methane", input title, 13, 1, 1)) doctype:(article OR inproceedings OR inbook)')
@@ -699,7 +699,7 @@ class test_oracle(TestCaseDatabase):
                     "doi": ["10.1051/0004-6361/202245034"],
                     "mustmatch": False,
                     "match_doctype": None}
-            r= self.client.post(path='/docmatch', data=json.dumps(data))
+            r= self.client.post(path='/docmatch_add', data=json.dumps(data))
             result = json.loads(r.data)
             self.assertEqual(result['query'],
                              'pubnote:("10.1051/0004-6361/202245034") doctype:(eprint)')
@@ -787,6 +787,37 @@ class test_oracle(TestCaseDatabase):
             self.assertEqual(json.loads(response.data),  {'message': 'No duplicate (tmp and canoncial) records found. '
                                                                      'No tmp bibcode was updated with the canonical bibcode. '
                                                                      'No multiple match records found.'})
+
+    def test_list_tmps_get(self):
+        """
+        Test list_tmps endpoint
+        """
+        return_value = [
+            ['2016arXiv160107986H', '2016LMaPh.tmp...85H', 1.1],
+            ['2019arXiv190306398S', '2019WatWa.tmp...13S', 0.9790447]
+        ], 200
+        with mock.patch('oraclesrv.utils.get_tmp_bibcodes', return_value=return_value):
+            response = list_tmps()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(json.loads(response.data),
+                             {'count': 2, 'results': [['2016arXiv160107986H', '2016LMaPh.tmp...85H', 1.1],
+                                                      ['2019arXiv190306398S', '2019WatWa.tmp...13S', 0.9790447]]})
+
+    def test_list_multis_get(self):
+        """
+        Test list_multis endpoint
+        :return:
+        """
+        return_value = [
+            ["1995hep.ph....2279S", "1995PThPS.120...57S", 1.1],
+            [ "1995hep.ph....2279S", "2013PThPS.120...57S", -1]
+        ], 200
+        with mock.patch('oraclesrv.utils.get_muti_matches', return_value=return_value):
+            response = list_multis()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(json.loads(response.data),
+                             {'count': 2, 'results': [['1995hep.ph....2279S', '1995PThPS.120...57S', 1.1],
+                                                      ['1995hep.ph....2279S', '2013PThPS.120...57S', -1]]})
 
     def test_get_solr_data_chunk(self):
         """

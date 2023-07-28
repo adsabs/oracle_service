@@ -197,8 +197,7 @@ def docmatch_post():
 
     :return:
     """
-    # TODO: set the save param to False
-    return docmatch(save=True)
+    return docmatch(save=False)
 
 @advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
 @bp.route('/docmatch_add', methods=['POST'])
@@ -361,6 +360,7 @@ def confidence(source):
 @bp.route('/cleanup', methods=['GET'])
 def cleanup():
     """
+    cleans up the db, removing tmp bibcodes and lower confidence of multi matches
 
     :return:
     """
@@ -382,3 +382,34 @@ def cleanup():
         return return_response({'message': message}, 200)
     else:
         return return_response({'message':'unable to perform the cleanup, ERROR: %s'%status}, 400)
+
+@advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
+@bp.route('/list_tmps', methods=['GET'])
+def list_tmps():
+    """
+    list tmp bibcodes in the db
+
+    :return:
+    """
+    results, status_code = utils.get_tmp_bibcodes()
+
+    current_app.logger.debug('tmp bibcodes results = %s'%json.dumps(results))
+    current_app.logger.debug('tmp bibcodes status_code = %d'%status_code)
+
+    return return_response({'count':len(results), 'results':results}, status_code)
+
+
+@advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
+@bp.route('/list_multis', methods=['GET'])
+def list_multis():
+    """
+    list multi matched bibcodes from the db
+
+    :return:
+    """
+    results, status_code = utils.get_muti_matches()
+
+    current_app.logger.debug('multi matches results = %s'%json.dumps(results))
+    current_app.logger.debug('multi matches status_code = %d'%status_code)
+
+    return return_response({'count':len(results), 'results':results}, status_code)

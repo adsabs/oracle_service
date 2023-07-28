@@ -12,7 +12,7 @@ from adsmutils import get_date
 from oraclesrv.tests.unittests.base import TestCaseDatabase
 from oraclesrv.utils import get_a_record, del_records, add_a_record, query_docmatch, query_source_score, lookup_confidence, \
     get_a_matched_record, query_docmatch, query_source_score, lookup_confidence, delete_tmp_matches, replace_tmp_with_canonical, \
-    delete_multi_matches, clean_db
+    delete_multi_matches, clean_db, get_tmp_bibcodes, get_muti_matches
 from oraclesrv.score import get_matches, get_doi_match
 from oraclesrv.models import DocMatch, ConfidenceLookup
 
@@ -419,6 +419,16 @@ class TestDatabase(TestCaseDatabase):
             self.assertEqual(status, False)
             self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
 
+            # exception within get_tmp_bibcodes
+            results, message = get_tmp_bibcodes()
+            self.assertEqual(results, None)
+            self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
+
+            # exception within get_muti_matches
+            results, message = get_muti_matches()
+            self.assertEqual(results, None)
+            self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
+
     def test_delete_tmp_matches(self):
         """
 
@@ -624,6 +634,117 @@ class TestDatabase(TestCaseDatabase):
         counts, status = clean_db()
         self.assertEqual(counts, {'count_deleted_tmp': 0, 'count_updated_canonical': 0, 'count_deleted_multi_matches': 0})
         self.assertEqual(status, '')
+
+        self.delete_stub_data()
+
+    def test_get_tmp_bibcodes(self):
+        """
+
+        :return:
+        """
+        self.add_stub_data()
+
+        # add matches with tmp bibcodes
+        tmp_matches = [
+            {
+                'source_bibcode': '2023arXiv230410160K',
+                'matched_bibcode': '2023MNRAS.tmp.1147K',
+                'confidence': 0.9957017
+            },{
+                'source_bibcode': '2023arXiv230602536C',
+                'matched_bibcode': '2023MNRAS.tmpL..73C',
+                'confidence': 0.9961402
+            },{
+                'source_bibcode': '2023arXiv230603140V',
+                'matched_bibcode': '2023MNRAS.tmp.1672V',
+                'confidence': 0.9942136
+            }
+        ]
+        for match in tmp_matches:
+            add_a_record(match)
+
+        results, status = get_tmp_bibcodes()
+        self.assertEqual(results, [('2023arXiv230410160K', '2023MNRAS.tmp.1147K', 0.9957017),
+                                   ('2023arXiv230602536C', '2023MNRAS.tmpL..73C', 0.9961402),
+                                   ('2023arXiv230603140V', '2023MNRAS.tmp.1672V', 0.9942136)])
+        self.assertEqual(status, 200)
+
+        self.delete_stub_data()
+
+    def test_get_muti_matches(self):
+        """
+
+        :return:
+        """
+        self.add_stub_data()
+
+        multi_matches = [
+            {
+                'source_bibcode': '2019arXiv190102008A',
+                'matched_bibcode': '2018ADNDT.123..168A',
+                'confidence': -1
+            },{
+                'source_bibcode': '2019arXiv190102008A',
+                'matched_bibcode': '2019ADNDT.125..226A',
+                'confidence': -1
+            },{
+                'source_bibcode': '2019arXiv190102008A',
+                'matched_bibcode': '2019ADNDT.127...22A',
+                'confidence': 0.9858069
+            },{
+                'source_bibcode': '2022arXiv220500682A',
+                'matched_bibcode': '2023PhRvC.107e4904A',
+                'confidence': 0.7222667
+            },{
+                'source_bibcode': '2022arXiv220500682A',
+                'matched_bibcode': '2023PhRvC.107e4908A',
+                'confidence': 0.9833502
+            },{
+                'source_bibcode': '2020arXiv201201581C',
+                'matched_bibcode': '2019PhRvD..99c2011S',
+                'confidence': 0.56
+            },{
+                'source_bibcode': '2020arXiv201201581C',
+                'matched_bibcode': '2021PhRvD.104a2008C',
+                'confidence': 0.78
+            },{
+                'source_bibcode': '2020arXiv201201581C',
+                'matched_bibcode': '2021PhRvD.104a2015S',
+                'confidence': 0.9681432
+            },{
+                'source_bibcode': '2021arXiv210205495L',
+                'matched_bibcode': '2021EPJC...81..489L',
+                'confidence': -1
+            },{
+                'source_bibcode': '2021arXiv210205551L',
+                'matched_bibcode': '2021EPJC...81..489L',
+                'confidence': 1.3
+            },{
+                'source_bibcode': '2021arXiv210912660B',
+                'matched_bibcode': '2022JHEP...09..242B',
+                'confidence': 1.3
+            },{
+                'source_bibcode': '2020arXiv201201581C',
+                'matched_bibcode': '2022arXiv220306688',
+                'confidence': -1
+            }
+        ]
+        for match in multi_matches:
+            add_a_record(match)
+
+        results, status = get_muti_matches()
+        self.assertEqual(results, [('2019arXiv190102008A', '2018ADNDT.123..168A', -1.0),
+                                   ('2019arXiv190102008A', '2019ADNDT.125..226A', -1.0),
+                                   ('2019arXiv190102008A', '2019ADNDT.127...22A', 0.9858069),
+                                   ('2020arXiv201201581C', '2019PhRvD..99c2011S', 0.56),
+                                   ('2020arXiv201201581C', '2021PhRvD.104a2008C', 0.78),
+                                   ('2020arXiv201201581C', '2021PhRvD.104a2015S', 0.9681432),
+                                   ('2020arXiv201201581C', '2022arXiv220306688', -1.0),
+                                   ('2021arXiv210205495L', '2021EPJC...81..489L', -1.0),
+                                   ('2021arXiv210205551L', '2021EPJC...81..489L', 1.3),
+                                   ('2022arXiv220500682A', '2023PhRvC.107e4904A', 0.7222667),
+                                   ('2022arXiv220500682A', '2023PhRvC.107e4908A', 0.9833502)])
+        self.assertEqual(status, 200)
 
         self.delete_stub_data()
 

@@ -596,3 +596,46 @@ def clean_db():
                 counts['count_deleted_multi_matches'] = count_deleted_multi_matches
                 return counts, ''
     return counts, '%s %s %s'%(status_deleted_tmp, status_updated_canonical, status_deleted_multi_matches)
+
+def get_tmp_bibcodes():
+    """
+
+    :return:
+    """
+    try:
+        with current_app.session_scope() as session:
+            result = session.query(DocMatch.eprint_bibcode, DocMatch.pub_bibcode, DocMatch.confidence, DocMatch.date) \
+                .filter(or_(DocMatch.pub_bibcode.like('%.tmp.%'), DocMatch.pub_bibcode.like('%.tmpL.%'))) \
+                .order_by(DocMatch.date.asc()).all()
+            if len(result) > 0:
+                # remove the last field, which is datetime, it is not needed to be returned
+                result = [r[0:3] for r in result]
+            return result, 200
+        return [], 200
+    except SQLAlchemyError as e:
+        current_app.logger.error('SQLAlchemy: ' + str(e))
+        return None, 'SQLAlchemy: ' + str(e)
+
+def get_muti_matches():
+    """
+
+    :return:
+    """
+    try:
+        with current_app.session_scope() as session:
+            # get the list of multi matched eprints
+            multi_eprints = session.query(DocMatch.eprint_bibcode) \
+                .group_by(DocMatch.eprint_bibcode).having(func.count('*') > 1).subquery()
+            # get the list of multi matched pubs
+            multi_pubs = session.query(DocMatch.pub_bibcode) \
+                .group_by(DocMatch.pub_bibcode).having(func.count('*') > 1).subquery()
+            # now get full records
+            result = session.query(DocMatch.eprint_bibcode, DocMatch.pub_bibcode, DocMatch.confidence) \
+                .filter(or_(DocMatch.eprint_bibcode == multi_eprints.c.eprint_bibcode, DocMatch.pub_bibcode == multi_pubs.c.pub_bibcode)) \
+                .group_by(DocMatch.eprint_bibcode, DocMatch.pub_bibcode, DocMatch.confidence) \
+                .order_by(DocMatch.eprint_bibcode.asc(), DocMatch.pub_bibcode.asc()).all()
+            return result, 200
+        return [], 200
+    except SQLAlchemyError as e:
+        current_app.logger.error('SQLAlchemy: ' + str(e))
+        return None, 'SQLAlchemy: ' + str(e)
