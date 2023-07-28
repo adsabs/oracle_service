@@ -131,8 +131,8 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
     results = []
     for doc in matched_docs:
         match_bibcode = doc.get('bibcode', '')
-        match_abstract = clean_data(doc.get('abstract', ''))
-        match_title = clean_data(' '.join(doc.get('title', [])))
+        match_abstract = clean_metadata(doc.get('abstract', ''))
+        match_title = clean_metadata(' '.join(doc.get('title', [])))
         match_author = doc.get('author_norm', [])
         match_year = doc.get('year', None)
         match_doi = doc.get('doi', [])
@@ -327,7 +327,7 @@ def strip_latex_html(input):
     output = re_escape.sub('', output)
     return output
 
-def clean_data(input):
+def clean_metadata(input):
     """
 
     :param input:

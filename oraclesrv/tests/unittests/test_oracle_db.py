@@ -11,7 +11,8 @@ from adsmutils import get_date
 
 from oraclesrv.tests.unittests.base import TestCaseDatabase
 from oraclesrv.utils import get_a_record, del_records, add_a_record, query_docmatch, query_source_score, lookup_confidence, \
-    get_a_matched_record, query_docmatch, query_source_score, lookup_confidence, delete_tmp_matches
+    get_a_matched_record, query_docmatch, query_source_score, lookup_confidence, delete_tmp_matches, replace_tmp_with_canonical, \
+    delete_multi_matches, clean_db
 from oraclesrv.score import get_matches, get_doi_match
 from oraclesrv.models import DocMatch, ConfidenceLookup
 
@@ -252,6 +253,8 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(len(matches), 1)
         self.assertDictEqual(matches[0], current_match)
 
+        self.delete_stub_data()
+
     def test_query(self):
         """
 
@@ -298,6 +301,8 @@ class TestDatabase(TestCaseDatabase):
         result, status_code = query_docmatch({'start': len(matches), 'rows': 2, 'date_cutoff': get_date('1972/01/01 00:00:00')})
         self.assertEqual(status_code, 200)
         self.assertEqual(result, [])
+
+        self.delete_stub_data()
 
     def test_query_source_score(self):
         """
@@ -371,6 +376,11 @@ class TestDatabase(TestCaseDatabase):
             self.assertEqual(status, False)
             self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
 
+            # exception within del_records
+            status, message = del_records(docmatches=None)
+            self.assertEqual(status, False)
+            self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
+
             # exception within get_a_record
             results = get_a_record(source_bibcode='', matched_bibcode='')
             self.assertEqual(results, {})
@@ -393,6 +403,21 @@ class TestDatabase(TestCaseDatabase):
             confidence, status_code = lookup_confidence(source='')
             self.assertEqual(confidence, 0)
             self.assertEqual(status_code, 404)
+
+            # exception within delete_tmp_matches
+            status, message = delete_tmp_matches()
+            self.assertEqual(status, False)
+            self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
+
+            # exception within replace_tmp_with_canonical
+            status, message = replace_tmp_with_canonical()
+            self.assertEqual(status, False)
+            self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
+
+            # exception within delete_multi_matches
+            status, message = delete_multi_matches()
+            self.assertEqual(status, False)
+            self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
 
     def test_delete_tmp_matches(self):
         """
@@ -443,11 +468,164 @@ class TestDatabase(TestCaseDatabase):
 
         # verify that the tmp bibcode does not exists in db anymore, only the canonical
         result = get_a_record(source_bibcode='2023arXiv230410160K', matched_bibcode='2023MNRAS.tmp.1147K')
-        self.assertNotEquals(result['pub_bibcode'], '2023MNRAS.tmp.1147K')
-        self.assertEquals(result['pub_bibcode'], '2023MNRAS.522.3648K')
+        self.assertNotEqual(result['pub_bibcode'], '2023MNRAS.tmp.1147K')
+        self.assertEqual(result['pub_bibcode'], '2023MNRAS.522.3648K')
 
         self.delete_stub_data()
 
+    def test_replace_tmp_with_canonical(self):
+        """
+
+        :return:
+        """
+        self.add_stub_data()
+        self.add_confidence_lookup_table()
+
+        # test when there is no record to replace
+        count, status = replace_tmp_with_canonical()
+        self.assertEqual(count, 0)
+        self.assertEqual(status, '')
+
+        # add matches with tmp bibcodes
+        tmp_matches = [
+            {
+                'source_bibcode': '2023arXiv230410160K',
+                'matched_bibcode': '2023MNRAS.tmp.1147K',
+                'confidence': 0.9957017
+            },{
+                'source_bibcode': '2023arXiv230602536C',
+                'matched_bibcode': '2023MNRAS.tmpL..73C',
+                'confidence': 0.9961402
+            },{
+                'source_bibcode': '2023arXiv230603140V',
+                'matched_bibcode': '2023MNRAS.tmp.1672V',
+                'confidence': 0.9942136
+            },{
+                'source_bibcode': '2023arXiv230603140V',
+                'matched_bibcode': '2023MNRAS.523.4624V',
+                'confidence': 0.9942136
+            }
+        ]
+        for match in tmp_matches:
+            add_a_record(match)
+
+        # now test when there are records to replace
+        docs = [
+            {'bibcode': '2023MNRAS.522.3648K',
+            'identifier': ['2023MNRAS.522.3648K', 'arXiv:2304.10160', '2023arXiv230410160K', '2023MNRAS.tmp.1147K',
+                         '10.1093/mnras/stad1181', '10.48550/arXiv.2304.10160']},
+            {'bibcode': '2023MNRAS.524L..61C',
+            'identifier': ['arXiv:2306.02536', '10.1093/mnrasl/slad072', '2023arXiv230602536C',
+                         '10.48550/arXiv.2306.02536', '2023MNRAS.524L..61C', '2023MNRAS.tmpL..73C']},
+            {'bibcode': '2023MNRAS.523.4624V',
+            'identifier': ['10.1093/mnras/stad1719', '2023arXiv230603140V', '10.48550/arXiv.2306.03140', '2023MNRAS.tmp.1672V',
+                        '2023MNRAS.523.4624V', 'arXiv:2306.03140']},
+        ]
+        with mock.patch('oraclesrv.utils.get_solr_data_chunk', return_value=[docs, 200]):
+            count, status = replace_tmp_with_canonical()
+            self.assertEqual(count, 3)
+            self.assertEqual(status, '')
+
+        # verify the updates
+        record = get_a_record('2023arXiv230410160K', '2023MNRAS.522.3648K')
+        self.assertEqual(record['eprint_bibcode'], '2023arXiv230410160K')
+        self.assertEqual(record['pub_bibcode'], '2023MNRAS.522.3648K')
+        self.assertEqual(record['confidence'], 0.9957017)
+        record = get_a_record('2023arXiv230602536C', '2023MNRAS.524L..61C')
+        self.assertEqual(record['eprint_bibcode'], '2023arXiv230602536C')
+        self.assertEqual(record['pub_bibcode'], '2023MNRAS.524L..61C')
+        self.assertEqual(record['confidence'], 0.9961402)
+        record = get_a_record('2023arXiv230603140V', '2023MNRAS.tmp.1672V')
+        self.assertEqual(record['eprint_bibcode'], '2023arXiv230603140V')
+        self.assertEqual(record['pub_bibcode'], '2023MNRAS.523.4624V')
+        self.assertEqual(record['confidence'], 0.9942136)
+
+        self.delete_confidence_lookup_table()
+        self.delete_stub_data()
+
+    def test_delete_multi_matches(self):
+        """
+
+        :return:
+        """
+        self.add_stub_data()
+
+        # add multiple matches
+        # note that there can be multiple low values (ie, two or more matches with confidence -1)
+        # also note that there could be multi matches for a specific eprint or multi matches for specific pub
+        # both sides needs to be checked and extra matches deleted
+        multi_matches = [
+            {
+                'source_bibcode': '2019arXiv190102008A',
+                'matched_bibcode': '2018ADNDT.123..168A',
+                'confidence': -1
+            },{
+                'source_bibcode': '2019arXiv190102008A',
+                'matched_bibcode': '2019ADNDT.125..226A',
+                'confidence': -1
+            },{
+                'source_bibcode': '2019arXiv190102008A',
+                'matched_bibcode': '2019ADNDT.127...22A',
+                'confidence': 0.9858069
+            },{
+                'source_bibcode': '2022arXiv220500682A',
+                'matched_bibcode': '2023PhRvC.107e4904A',
+                'confidence': 0.7222667
+            },{
+                'source_bibcode': '2022arXiv220500682A',
+                'matched_bibcode': '2023PhRvC.107e4908A',
+                'confidence': 0.9833502
+            },{
+                'source_bibcode': '2020arXiv201201581C',
+                'matched_bibcode': '2019PhRvD..99c2011S',
+                'confidence': 0.56
+            },{
+                'source_bibcode': '2020arXiv201201581C',
+                'matched_bibcode': '2021PhRvD.104a2008C',
+                'confidence': 0.78
+            },{
+                'source_bibcode': '2020arXiv201201581C',
+                'matched_bibcode': '2021PhRvD.104a2015S',
+                'confidence': 0.9681432
+            },{
+                'source_bibcode': '2021arXiv210205495L',
+                'matched_bibcode': '2021EPJC...81..489L',
+                'confidence': -1
+            },{
+                'source_bibcode': '2021arXiv210205551L',
+                'matched_bibcode': '2021EPJC...81..489L',
+                'confidence': 1.3
+            },{
+                'source_bibcode': '2021arXiv210912660B',
+                'matched_bibcode': '2022JHEP...09..242B',
+                'confidence': 1.3
+            },{
+                'source_bibcode': '2020arXiv201201581C',
+                'matched_bibcode': '2022arXiv220306688',
+                'confidence': -1
+            }
+        ]
+        for match in multi_matches:
+            add_a_record(match)
+
+        count, status = delete_multi_matches()
+        self.assertEqual(count, 7)
+        self.assertEqual(status, '')
+
+        self.delete_stub_data()
+
+    def test_clean_db(self):
+        """
+
+        :return:
+        """
+        self.add_stub_data()
+
+        counts, status = clean_db()
+        self.assertEqual(counts, {'count_deleted_tmp': 0, 'count_updated_canonical': 0, 'count_deleted_multi_matches': 0})
+        self.assertEqual(status, '')
+
+        self.delete_stub_data()
 
 if __name__ == "__main__":
     unittest.main()

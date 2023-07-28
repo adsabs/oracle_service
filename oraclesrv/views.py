@@ -14,10 +14,11 @@ from datetime import timedelta
 from adsmsg import DocMatchRecordList
 from google.protobuf.json_format import Parse, ParseError
 
-from oraclesrv.utils import get_solr_data_recommend, add_records, del_records, query_docmatch, query_source_score, lookup_confidence, delete_tmp_matches
+from oraclesrv.utils import get_solr_data_recommend, add_records, del_records, query_docmatch, query_source_score, lookup_confidence
 from oraclesrv.keras_model import create_keras_model
 from oraclesrv.doc_matching import DocMatching, get_requests_params
 
+import oraclesrv.utils as utils
 
 bp = Blueprint('oracle_service', __name__)
 
@@ -357,14 +358,27 @@ def confidence(source):
     return return_response({'confidence':score}, status_code)
 
 @advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
-@bp.route('/cleanup', methods=['POST'])
+@bp.route('/cleanup', methods=['GET'])
 def cleanup():
     """
 
     :return:
     """
-    count, status = delete_tmp_matches()
-    if count >= 0:
-        return return_response({'message':'successfully removed %d matches having tmp bibcode while matches with canonical bibcode exists.'%count}, 200)
+    counts, status = utils.clean_db()
+    if all(count >= 0 for count in counts.values()):
+        if counts.get('count_deleted_tmp', -1) > 0:
+            message = 'Successfully removed %d matches having tmp bibcode while matches with canonical bibcode exists. '%counts['count_deleted_tmp']
+        else:
+            message = 'No duplicate (tmp and canoncial) records found. '
+        if counts.get('count_updated_canonical', -1) > 0:
+            message += 'Successfully replaced %d tmp matches with its canonical bibcode. ' % counts['count_updated_canonical']
+        else:
+            message += 'No tmp bibcode was updated with the canonical bibcode. '
+        if counts.get('count_deleted_duplicate') > 0:
+            message += 'Successfully removed %d matches having multiple matches, kept the match with highest confidence.' % counts['count_deleted_duplicate']
+        else:
+            message += 'No multiple match records found.'
+
+        return return_response({'message': message}, 200)
     else:
         return return_response({'message':'unable to perform the cleanup, ERROR: %s'%status}, 400)

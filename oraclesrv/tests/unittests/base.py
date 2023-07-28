@@ -37,6 +37,7 @@ class TestCaseDatabase(TestCase):
             'PROPAGATE_EXCEPTIONS': True,
             'TRAP_BAD_REQUEST_ERRORS': True,
             'RESOLVER_GATEWAY_URL': '/{bibcode}/{link_type}/{url}',
+            'ORACLE_SERVICE_MAX_RECORDS_SOLRQUERY': 2,
         })
         return self.current_app
 

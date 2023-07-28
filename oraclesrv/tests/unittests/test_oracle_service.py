@@ -7,15 +7,16 @@ sys.path.append(PROJECT_HOME)
 import unittest
 import json
 import mock
+import requests
 from requests.exceptions import HTTPError
 from requests.models import Response
 
 from oraclesrv.tests.unittests.base import TestCaseDatabase
-from oraclesrv.views import get_user_info_from_adsws
-from oraclesrv.score import clean_data, get_matches, to_unicode
+from oraclesrv.views import get_user_info_from_adsws, cleanup
+from oraclesrv.score import clean_metadata, get_matches, to_unicode
 from oraclesrv.doc_matching import DocMatching
 from oraclesrv.utils import get_solr_data_recommend, get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_pubnote, \
-    get_solr_data_match_doctype_case
+    get_solr_data_match_doctype_case, get_solr_data_chunk
 
 
 class test_oracle(TestCaseDatabase):
@@ -500,7 +501,7 @@ class test_oracle(TestCaseDatabase):
         Tests routine that cleans abstract and title
         """
         abstract = "\x01An    investigation"
-        self.assertEqual(clean_data(abstract), "An investigation")
+        self.assertEqual(clean_metadata(abstract), "An investigation")
 
     def test_docmatch_endpoint_no_abstract_source(self):
         """
@@ -757,6 +758,154 @@ class test_oracle(TestCaseDatabase):
             # exception within get_solr_data_match_doctype_case
             result, _, _ = get_solr_data_match_doctype_case('author here', 2000, doctype='eprint', match_doctype='article')
             self.assertEqual(result, {'error from solr': '404: not found'})
+
+    def test_cleanup_endpoint_get(self):
+        """
+        Test cleanup endpoint
+        """
+        # test when there is an error
+        return_value = {'count_deleted_tmp': -1, 'count_updated_canonical': -1, 'count_deleted_duplicate': -1}, 'some sqlalchemy error'
+        with mock.patch('oraclesrv.utils.clean_db', return_value=return_value):
+            response = cleanup()
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(json.loads(response.data), {"message": "unable to perform the cleanup, ERROR: some sqlalchemy error"})
+
+        # test when success
+        return_value = {'count_deleted_tmp': 12, 'count_updated_canonical': 3, 'count_deleted_duplicate': 5}, ''
+        with mock.patch('oraclesrv.utils.clean_db', return_value=return_value):
+            response = cleanup()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(json.loads(response.data),  {'message': 'Successfully removed 12 matches having tmp bibcode while matches with canonical bibcode exists. '
+                                                                     'Successfully replaced 3 tmp matches with its canonical bibcode. '
+                                                                     'Successfully removed 5 matches having multiple matches, kept the match with highest confidence.'})
+
+        # test when database is clean
+        return_value = {'count_deleted_tmp': 0, 'count_updated_canonical': 0, 'count_deleted_duplicate': 0}, ''
+        with mock.patch('oraclesrv.utils.clean_db', return_value=return_value):
+            response = cleanup()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(json.loads(response.data),  {'message': 'No duplicate (tmp and canoncial) records found. '
+                                                                     'No tmp bibcode was updated with the canonical bibcode. '
+                                                                     'No multiple match records found.'})
+
+    def test_get_solr_data_chunk(self):
+        """
+
+        :return:
+        """
+
+        def create_response(text):
+            """ create a response object """
+            response = requests.Response()
+            response.status_code = 200
+            response._content = bytes(json.dumps(text).encode('utf-8'))
+            return response
+
+        # verify that a chunk is now 2
+        max_bibcodes = self.current_app.config['ORACLE_SERVICE_MAX_RECORDS_SOLRQUERY']
+        self.assertEqual(max_bibcodes, 2)
+
+        # sending 7 bibcodes that should get processed in four chunks
+        bibcodes = [
+            '2023MNRAS.tmp.1609L', '2023MNRAS.tmp.1679S', '2023MNRAS.tmp.1683W', '2023MNRAS.tmpL..73C',
+            '2023MNRAS.tmp.1729N', '2023MNRAS.tmp.1672V', '2023MNRAS.tmp.1673T',
+        ]
+
+        results = [
+            {
+                'responseHeader': {'status': 0, 'QTime': 3,
+                                'params': {'q': 'identifier:("2023MNRAS.tmp.1609L" OR "2023MNRAS.tmp.1679S")',
+                                           'fl': 'bibcode,identifier', 'start': '0',
+                                           'internal_logging_params': 'X-Amzn-Trace-Id=Root=1-64c3d594-219029c018b8392d240bc153',
+                                           'sort': 'date desc,bibcode desc', 'rows': '2', 'wt': 'json'}},
+                'response': {'numFound': 2, 'start': 0, 'docs': [{'bibcode': '2023MNRAS.523.4739S',
+                                                               'identifier': ['2023arXiv230601119S',
+                                                                              '10.1093/mnras/stad1711',
+                                                                              'arXiv:2306.01119', '2023MNRAS.523.4739S',
+                                                                              '10.48550/arXiv.2306.01119',
+                                                                              '2023MNRAS.tmp.1679S']},
+                                                              {'bibcode': '2023MNRAS.523.4029L',
+                                                               'identifier': ['2023MNRAS.523.4029L',
+                                                                              '2023arXiv230600447L',
+                                                                              '10.48550/arXiv.2306.00447',
+                                                                              'arXiv:2306.00447', '2023MNRAS.tmp.1609L',
+                                                                              '10.1093/mnras/stad1670']}]}
+            }, {
+                'responseHeader': {'status': 0, 'QTime': 2,
+                                'params': {'q': 'identifier:("2023MNRAS.tmp.1683W" OR "2023MNRAS.tmpL..73C")',
+                                           'fl': 'bibcode,identifier', 'start': '0',
+                                           'internal_logging_params': 'X-Amzn-Trace-Id=Root=1-64c3d595-207244706e35b4d43ed7937e',
+                                           'sort': 'date desc,bibcode desc', 'rows': '2', 'wt': 'json'}},
+                'response': {'numFound': 2, 'start': 0, 'docs': [{'bibcode': '2023MNRAS.524L..61C',
+                                                               'identifier': ['arXiv:2306.02536',
+                                                                              '10.1093/mnrasl/slad072',
+                                                                              '2023arXiv230602536C',
+                                                                              '10.48550/arXiv.2306.02536',
+                                                                              '2023MNRAS.524L..61C',
+                                                                              '2023MNRAS.tmpL..73C']},
+                                                              {'bibcode': '2023MNRAS.523.4801W',
+                                                               'identifier': ['2023MNRAS.tmp.1683W',
+                                                                              '10.48550/arXiv.2306.01283',
+                                                                              '2023arXiv230601283W',
+                                                                              '2023MNRAS.523.4801W',
+                                                                              '10.1093/mnras/stad1673',
+                                                                              'arXiv:2306.01283']}]}
+            }, {
+                'responseHeader': {'status': 0, 'QTime': 3,
+                                'params': {'q': 'identifier:("2023MNRAS.tmp.1729N" OR "2023MNRAS.tmp.1672V")',
+                                           'fl': 'bibcode,identifier', 'start': '0',
+                                           'internal_logging_params': 'X-Amzn-Trace-Id=Root=1-64c3d595-5c97bb2f4abdcc827feb81aa',
+                                           'sort': 'date desc,bibcode desc', 'rows': '2', 'wt': 'json'}},
+                'response': {'numFound': 2, 'start': 0, 'docs': [{'bibcode': '2023MNRAS.524.1156V',
+                                                               'identifier': ['2023MNRAS.524.1156V',
+                                                                              '2023MNRAS.tmp.1729N',
+                                                                              '2023arXiv230602945V',
+                                                                              '10.48550/arXiv.2306.02945',
+                                                                              'arXiv:2306.02945',
+                                                                              '10.1093/mnras/stad1742']},
+                                                              {'bibcode': '2023MNRAS.523.4624V',
+                                                               'identifier': ['10.1093/mnras/stad1719',
+                                                                              '2023arXiv230603140V',
+                                                                              '10.48550/arXiv.2306.03140',
+                                                                              '2023MNRAS.tmp.1672V',
+                                                                              '2023MNRAS.523.4624V',
+                                                                              'arXiv:2306.03140']}]}
+            }, {
+                'responseHeader': {'status': 0, 'QTime': 2,
+                                'params': {'q': 'identifier:("2023MNRAS.tmp.1673T")', 'fl': 'bibcode,identifier',
+                                           'start': '0',
+                                           'internal_logging_params': 'X-Amzn-Trace-Id=Root=1-64c3d595-678ad03e73888fb700a8416c',
+                                           'sort': 'date desc,bibcode desc', 'rows': '1', 'wt': 'json'}},
+                'response': {'numFound': 1, 'start': 0, 'docs': [{'bibcode': '2023MNRAS.523.4520T',
+                                                               'identifier': ['2023MNRAS.tmp.1673T',
+                                                                              '10.1093/mnras/stad1729',
+                                                                              '10.48550/arXiv.2306.04691',
+                                                                              '2023arXiv230604691T', 'arXiv:2306.04691',
+                                                                              '2023MNRAS.523.4520T']}]}
+            }
+
+        ]
+
+        return_values = []
+        for result in results:
+            return_values.append(create_response(result))
+
+        expected = [
+            {'bibcode': '2023MNRAS.523.4739S', 'identifier': ['2023arXiv230601119S', '10.1093/mnras/stad1711', 'arXiv:2306.01119', '2023MNRAS.523.4739S', '10.48550/arXiv.2306.01119', '2023MNRAS.tmp.1679S']},
+            {'bibcode': '2023MNRAS.523.4029L', 'identifier': ['2023MNRAS.523.4029L', '2023arXiv230600447L', '10.48550/arXiv.2306.00447', 'arXiv:2306.00447', '2023MNRAS.tmp.1609L', '10.1093/mnras/stad1670']},
+            {'bibcode': '2023MNRAS.524L..61C', 'identifier': ['arXiv:2306.02536', '10.1093/mnrasl/slad072', '2023arXiv230602536C', '10.48550/arXiv.2306.02536', '2023MNRAS.524L..61C', '2023MNRAS.tmpL..73C']},
+            {'bibcode': '2023MNRAS.523.4801W', 'identifier': ['2023MNRAS.tmp.1683W', '10.48550/arXiv.2306.01283', '2023arXiv230601283W', '2023MNRAS.523.4801W', '10.1093/mnras/stad1673', 'arXiv:2306.01283']},
+            {'bibcode': '2023MNRAS.524.1156V', 'identifier': ['2023MNRAS.524.1156V', '2023MNRAS.tmp.1729N', '2023arXiv230602945V', '10.48550/arXiv.2306.02945', 'arXiv:2306.02945', '10.1093/mnras/stad1742']},
+            {'bibcode': '2023MNRAS.523.4624V', 'identifier': ['10.1093/mnras/stad1719', '2023arXiv230603140V', '10.48550/arXiv.2306.03140', '2023MNRAS.tmp.1672V', '2023MNRAS.523.4624V', 'arXiv:2306.03140']},
+            {'bibcode': '2023MNRAS.523.4520T', 'identifier': ['2023MNRAS.tmp.1673T', '10.1093/mnras/stad1729', '10.48550/arXiv.2306.04691', '2023arXiv230604691T', 'arXiv:2306.04691', '2023MNRAS.523.4520T']}
+        ]
+
+        with mock.patch('requests.get', side_effect=return_values):
+            docs, status = get_solr_data_chunk(bibcodes)
+
+            # all info in returned in one chunk
+            self.assertEqual(len(bibcodes), len(expected))
+            self.assertEqual(docs, expected)
 
 
 if __name__ == "__main__":
