@@ -18,6 +18,7 @@ from oraclesrv.utils import get_solr_data_recommend, add_records, del_records, q
 from oraclesrv.keras_model import create_keras_model
 from oraclesrv.doc_matching import DocMatching, get_requests_params
 
+import oraclesrv.utils as utils
 
 bp = Blueprint('oracle_service', __name__)
 
@@ -196,8 +197,7 @@ def docmatch_post():
 
     :return:
     """
-    # TODO: set the save param to False
-    return docmatch(save=True)
+    return docmatch(save=False)
 
 @advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
 @bp.route('/docmatch_add', methods=['POST'])
@@ -356,3 +356,60 @@ def confidence(source):
 
     return return_response({'confidence':score}, status_code)
 
+@advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
+@bp.route('/cleanup', methods=['GET'])
+def cleanup():
+    """
+    cleans up the db, removing tmp bibcodes and lower confidence of multi matches
+
+    :return:
+    """
+    counts, status = utils.clean_db()
+    if all(count >= 0 for count in counts.values()):
+        if counts.get('count_deleted_tmp', -1) > 0:
+            message = 'Successfully removed %d matches having tmp bibcode while matches with canonical bibcode exists. '%counts['count_deleted_tmp']
+        else:
+            message = 'No duplicate (tmp and canoncial) records found. '
+        if counts.get('count_updated_canonical', -1) > 0:
+            message += 'Successfully replaced %d tmp matches with its canonical bibcode. ' % counts['count_updated_canonical']
+        else:
+            message += 'No tmp bibcode was updated with the canonical bibcode. '
+        if counts.get('count_deleted_duplicate') > 0:
+            message += 'Successfully removed %d matches having multiple matches, kept the match with highest confidence.' % counts['count_deleted_duplicate']
+        else:
+            message += 'No multiple match records found.'
+
+        return return_response({'message': message}, 200)
+    else:
+        return return_response({'message':'unable to perform the cleanup, ERROR: %s'%status}, 400)
+
+@advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
+@bp.route('/list_tmps', methods=['GET'])
+def list_tmps():
+    """
+    list tmp bibcodes in the db
+
+    :return:
+    """
+    results, status_code = utils.get_tmp_bibcodes()
+
+    current_app.logger.debug('tmp bibcodes results = %s'%json.dumps(results))
+    current_app.logger.debug('tmp bibcodes status_code = %d'%status_code)
+
+    return return_response({'count':len(results), 'results':results}, status_code)
+
+
+@advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
+@bp.route('/list_multis', methods=['GET'])
+def list_multis():
+    """
+    list multi matched bibcodes from the db
+
+    :return:
+    """
+    results, status_code = utils.get_muti_matches()
+
+    current_app.logger.debug('multi matches results = %s'%json.dumps(results))
+    current_app.logger.debug('multi matches status_code = %d'%status_code)
+
+    return return_response({'count':len(results), 'results':results}, status_code)

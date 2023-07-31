@@ -6,6 +6,7 @@ REQUESTS_CONNECTION_POOL_ENABLED = True
 # these values can be overwritten by local_config values
 ORACLE_SERVICE_SOLRQUERY_URL = "https://dev.adsabs.harvard.edu/v1/search/query"
 ORACLE_SERVICE_ADSWS_API_TOKEN = 'this is a secret api token!'
+ORACLE_SERVICE_MAX_RECORDS_SOLRQUERY = 100
 
 # db config
 SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://postgres:postgres@localhost:5432/postgres'

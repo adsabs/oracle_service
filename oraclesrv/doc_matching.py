@@ -1,7 +1,7 @@
 from flask import current_app
 
 from oraclesrv.utils import get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_doctype_case, get_solr_data_match_pubnote
-from oraclesrv.score import clean_data, get_matches, encode_author, format_author, get_doi_match, get_db_match
+from oraclesrv.score import clean_metadata, get_matches, encode_author, format_author, get_doi_match, get_db_match
 from oraclesrv.utils import add_a_record
 
 def get_requests_params(payload, param, default_value=None, default_type=str):
@@ -238,8 +238,8 @@ class DocMatching(object):
                         elif not self.doi:
                             return result
 
-        self.abstract = clean_data(self.abstract)
-        self.title = clean_data(self.title)
+        self.abstract = clean_metadata(self.abstract)
+        self.title = clean_metadata(self.title)
         # remove REFEREED for now
         #self.extra_filter = 'property:REFEREED' if 'eprint' not in self.match_doctype else ''
         self.extra_filter = ''

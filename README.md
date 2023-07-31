@@ -125,6 +125,21 @@ returning
 Also Note that there is a limit of number of records per call, 2000, if rows is set to a larger value, still only 2000 records are returned.
 
 
+#### Cleanup db  (internal use only):
+
+    curl -H "Authorization: Bearer <your API token>" -X GET https://api.adsabs.harvard.edu/v1/oracle/cleanup"
+
+
+#### List tmp bibcodes (internal use only):
+
+    curl -H "Authorization: Bearer <your API token>" -X GET https://api.adsabs.harvard.edu/v1/oracle/list_tmps"
+
+
+#### List multi matches (internal use only):
+
+    curl -H "Authorization: Bearer <your API token>" -X GET https://api.adsabs.harvard.edu/v1/oracle/list_multis"
+
+
 ## Maintainers
 
 Golnaz
