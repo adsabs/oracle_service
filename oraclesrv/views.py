@@ -375,7 +375,7 @@ def cleanup():
         else:
             message += 'No tmp bibcode was updated with the canonical bibcode. '
         if counts.get('count_deleted_multi_matches') > 0:
-            message += 'Successfully removed %d matches having multiple matches, kept the match with highest confidence.' % counts['count_deleted_duplicate']
+            message += 'Successfully removed %d matches having multiple matches, kept the match with highest confidence.' % counts['count_deleted_multi_matches']
         else:
             message += 'No multiple match records found.'
 

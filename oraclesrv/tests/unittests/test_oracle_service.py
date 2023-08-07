@@ -764,14 +764,14 @@ class test_oracle(TestCaseDatabase):
         Test cleanup endpoint
         """
         # test when there is an error
-        return_value = {'count_deleted_tmp': -1, 'count_updated_canonical': -1, 'count_deleted_duplicate': -1}, 'some sqlalchemy error'
+        return_value = {'count_deleted_tmp': -1, 'count_updated_canonical': -1, 'count_deleted_multi_matches': -1}, 'some sqlalchemy error'
         with mock.patch('oraclesrv.utils.clean_db', return_value=return_value):
             response = cleanup()
             self.assertEqual(response.status_code, 400)
             self.assertEqual(json.loads(response.data), {"message": "unable to perform the cleanup, ERROR: some sqlalchemy error"})
 
         # test when success
-        return_value = {'count_deleted_tmp': 12, 'count_updated_canonical': 3, 'count_deleted_duplicate': 5}, ''
+        return_value = {'count_deleted_tmp': 12, 'count_updated_canonical': 3, 'count_deleted_multi_matches': 5}, ''
         with mock.patch('oraclesrv.utils.clean_db', return_value=return_value):
             response = cleanup()
             self.assertEqual(response.status_code, 200)
@@ -780,7 +780,7 @@ class test_oracle(TestCaseDatabase):
                                                                      'Successfully removed 5 matches having multiple matches, kept the match with highest confidence.'})
 
         # test when database is clean
-        return_value = {'count_deleted_tmp': 0, 'count_updated_canonical': 0, 'count_deleted_duplicate': 0}, ''
+        return_value = {'count_deleted_tmp': 0, 'count_updated_canonical': 0, 'count_deleted_multi_matches': 0}, ''
         with mock.patch('oraclesrv.utils.clean_db', return_value=return_value):
             response = cleanup()
             self.assertEqual(response.status_code, 200)
