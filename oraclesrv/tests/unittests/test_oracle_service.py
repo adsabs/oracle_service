@@ -768,14 +768,14 @@ class test_oracle(TestCaseDatabase):
         with mock.patch('oraclesrv.utils.clean_db', return_value=return_value):
             response = cleanup()
             self.assertEqual(response.status_code, 400)
-            self.assertEqual(json.loads(response.data), {"message": "unable to perform the cleanup, ERROR: some sqlalchemy error"})
+            self.assertEqual(json.loads(response.data), {"details": "unable to perform the cleanup, ERROR: some sqlalchemy error"})
 
         # test when success
         return_value = {'count_deleted_tmp': 12, 'count_updated_canonical': 3, 'count_deleted_multi_matches': 5}, ''
         with mock.patch('oraclesrv.utils.clean_db', return_value=return_value):
             response = cleanup()
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(json.loads(response.data),  {'message': 'Successfully removed 12 matches having tmp bibcode while matches with canonical bibcode exists. '
+            self.assertEqual(json.loads(response.data),  {'details': 'Successfully removed 12 matches having tmp bibcode while matches with canonical bibcode exists. '
                                                                      'Successfully replaced 3 tmp matches with its canonical bibcode. '
                                                                      'Successfully removed 5 matches having multiple matches, kept the match with highest confidence.'})
 
@@ -784,7 +784,7 @@ class test_oracle(TestCaseDatabase):
         with mock.patch('oraclesrv.utils.clean_db', return_value=return_value):
             response = cleanup()
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(json.loads(response.data),  {'message': 'No duplicate (tmp and canoncial) records found. '
+            self.assertEqual(json.loads(response.data),  {'details': 'No duplicate (tmp and canoncial) records found. '
                                                                      'No tmp bibcode was updated with the canonical bibcode. '
                                                                      'No multiple match records found.'})
 

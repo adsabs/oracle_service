@@ -379,9 +379,9 @@ def cleanup():
         else:
             message += 'No multiple match records found.'
 
-        return return_response({'message': message}, 200)
+        return return_response({'details': message}, 200)
     else:
-        return return_response({'message':'unable to perform the cleanup, ERROR: %s'%status}, 400)
+        return return_response({'details':'unable to perform the cleanup, ERROR: %s'%status}, 400)
 
 @advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
 @bp.route('/list_tmps', methods=['GET'])
