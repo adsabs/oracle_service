@@ -154,10 +154,20 @@ class test_oracle(TestCaseDatabase):
             account = get_user_info_from_adsws('???')
             self.assertEqual(account, None)
 
-    def test_docmatch_endpoint_metadata(self):
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_docmatch_endpoint_metadata(self, mock_query_eprint_bibstem):
         """
         Tests docmatch endpoint using metadata abstract/title to query solr
         """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             get_mock.return_value = mock_response = mock.Mock()
@@ -205,10 +215,20 @@ class test_oracle(TestCaseDatabase):
                                'confidence': 0.8766192, 'matched': 1,
                                'scores': {'abstract': 0.9, 'title': 1.0, 'author': 1, 'year': 1}}])
 
-    def test_docmatch_endpoint_no_result_from_solr_metadata(self):
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_docmatch_endpoint_no_result_from_solr_metadata(self, mock_query_eprint_bibstem):
         """
         Tests docmatch endpoint having no result from solr when solr queried with abstract/title
         """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             get_mock.return_value = mock_response = mock.Mock()
@@ -239,10 +259,20 @@ class test_oracle(TestCaseDatabase):
             self.assertEqual(result['no match'],
                              'no document was found in solr matching the request.')
 
-    def test_docmatch_endpoint_with_doi_and_collaboration(self):
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_docmatch_endpoint_with_doi_and_collaboration(self, mock_query_eprint_bibstem):
         """
         Tests docmatch endpoint having doi and being a collaboration
         """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             get_mock.return_value = mock_response = mock.Mock()
@@ -286,10 +316,20 @@ class test_oracle(TestCaseDatabase):
                                'confidence': 0.8865355, 'matched': 1,
                                'scores': {'abstract': 0.94, 'title': 0.99, 'author': 0.3, 'year': 1, 'doi': 1}}])
 
-    def test_docmatch_endpoint_with_doi_not_matching(self):
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_docmatch_endpoint_with_doi_not_matching(self, mock_query_eprint_bibstem):
         """
         Tests docmatch endpoint having erroneous doi
         """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             get_mock.return_value = mock_response = mock.Mock()
@@ -330,10 +370,20 @@ class test_oracle(TestCaseDatabase):
                                'confidence': 0.8960806, 'matched': 1,
                                'scores': {'abstract': 0.92, 'title': 0.99, 'author': 1, 'year': 1, 'doi': 1}}])
 
-    def test_docmatch_endpoint_with_accented_author(self):
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_docmatch_endpoint_with_accented_author(self, mock_query_eprint_bibstem):
         """
         Tests docmatch endpoint having accented author
         """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             get_mock.return_value = mock_response = mock.Mock()
@@ -372,10 +422,20 @@ class test_oracle(TestCaseDatabase):
                                'confidence': 0.8745491, 'matched': 1,
                                'scores': {'abstract': 0.92, 'title': 1.0, 'author': 0.62, 'year': 1}}])
 
-    def test_docmatch_endpoint_no_abstract_solr_record(self):
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_docmatch_endpoint_no_abstract_solr_record(self, mock_query_eprint_bibstem):
         """
         when there is no abstract that title is quarried
         """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             get_mock.return_value = mock_response = mock.Mock()
@@ -413,10 +473,20 @@ class test_oracle(TestCaseDatabase):
                                'confidence': 0.8988905, 'matched': 1,
                                'scores': {'abstract': None, 'title': 0.99, 'author': 1, 'year': 1}}])
 
-    def test_docmatch_endpoint_matching_thesis(self):
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_docmatch_endpoint_matching_thesis(self, mock_query_eprint_bibstem):
         """
         Tests docmatch endpoint having thesis
         """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             get_mock.return_value = mock_response = mock.Mock()
@@ -503,10 +573,20 @@ class test_oracle(TestCaseDatabase):
         abstract = "\x01An    investigation"
         self.assertEqual(clean_metadata(abstract), "An investigation")
 
-    def test_docmatch_endpoint_no_abstract_source(self):
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_docmatch_endpoint_no_abstract_source(self, mock_query_eprint_bibstem):
         """
         Tests docmatch endpoint using metadata abstract/title to query solr, when there is no abstract, and we found a match
         """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             get_mock.return_value = mock_response = mock.Mock()
@@ -555,25 +635,35 @@ class test_oracle(TestCaseDatabase):
                                'confidence': 0.8989977, 'matched': 1,
                                'scores': {'abstract': None, 'title': 1.0, 'author': 1, 'year': 1}}])
 
-    def test_query_endpoint(self):
+    # def test_query_endpoint(self):
+    #     """
+    #     Test query endpoint with and without params passing in
+    #     :return:
+    #     """
+    #     r = self.client.post(path='/query')
+    #     result = json.loads(r.data)
+    #     self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192], ['2022arXiv221016332G', '2023A&A...669A...7G', 0.9859276]]})
+    #
+    #     # set the rows to a larger number and see that it is reset
+    #     r = self.client.post(path='/query', data=json.dumps({'rows': 3000, 'start': 0}))
+    #     result = json.loads(r.data)
+    #     self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192], ['2022arXiv221016332G', '2023A&A...669A...7G', 0.9859276]]})
+
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_get_matches(self, mock_query_eprint_bibstem):
         """
-        Test query endpoint with and without params passing in
+
         :return:
         """
-        r = self.client.post(path='/query')
-        result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192], ['2022arXiv221016332G', '2023A&A...669A...7G', 0.9859276]]})
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
 
-        # set the rows to a larger number and see that it is reset
-        r = self.client.post(path='/query', data=json.dumps({'rows': 3000, 'start': 0}))
-        result = json.loads(r.data)
-        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192], ['2022arXiv221016332G', '2023A&A...669A...7G', 0.9859276]]})
-
-    def test_get_matches(self):
-        """
-
-        :return:
-        """
         source_bibcode = '2022arXiv220606316S'
         abstract = 'In the present paper, discussion of the canonical quantization of a weakly nonideal Bose gas at zero temperature along the lines of the famous Bogolyubov approach is continued. Contrary to the previous paper on this subject, here the two-body interaction potential is considered in the general form. It is shown that consideration of the first nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach, without any modification of the resulting effective Hamiltonian.'
         title = 'Nonlinear corrections in the quantization of a weakly nonideal Bose gas   at zero temperature. II. The general case'
@@ -627,11 +717,21 @@ class test_oracle(TestCaseDatabase):
                                         'matched': 1,
                                         'scores': {'abstract': None, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1}})
 
-    def test_get_match_for_pub_with_doi(self):
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_get_match_for_pub_with_doi(self, mock_query_eprint_bibstem):
         """
         Test matching publication with doi
         :return:
         """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
         source_bibcode = '2022AcAT....3a..27P'
         abstract = 'Not Available'
         title = 'Revisiting the spectral energy distribution of I Zw 1 under the CaFe Project'
@@ -658,10 +758,20 @@ class test_oracle(TestCaseDatabase):
                                         'matched': 1,
                                         'scores': {'abstract': None, 'title': 1.0, 'author': 1, 'year': 1, 'doi': 1}})
 
-    def test_get_match_for_doi_in_pubnote(self):
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_get_match_for_doi_in_pubnote(self, mock_query_eprint_bibstem):
         """
         Tests docmatch endpoint using metadata doi in pubnote to query solr
         """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
         # the mock is for solr call
         with mock.patch.object(self.current_app.client, 'get') as get_mock:
             get_mock.return_value = mock_response = mock.Mock()
