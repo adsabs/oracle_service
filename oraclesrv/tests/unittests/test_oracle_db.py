@@ -14,7 +14,7 @@ from oraclesrv.utils import get_a_record, del_records, add_a_record, query_docma
     get_a_matched_record, query_docmatch, query_source_score, lookup_confidence, delete_tmp_matches, replace_tmp_with_canonical, \
     delete_multi_matches, clean_db, get_tmp_bibcodes, get_muti_matches
 from oraclesrv.score import get_matches, get_doi_match
-from oraclesrv.models import DocMatch, ConfidenceLookup
+from oraclesrv.models import DocMatch, ConfidenceLookup, EPrintBibstemLookup
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -26,6 +26,8 @@ class TestDatabase(TestCaseDatabase):
         Add stub data
         :return:
         """
+        self.add_eprint_bibstem_lookup_table()
+
         stub_data = [
                         ('2021arXiv210312030S', '2021CSF...15311505S', 0.9829099),
                         ('2017arXiv171111082H', '2018ConPh..59...16H', 0.9877064),
@@ -49,6 +51,8 @@ class TestDatabase(TestCaseDatabase):
 
         :return:
         """
+        self.delete_eprint_bibstem_lookup_table()
+
         with self.current_app.session_scope() as session:
             session.query(DocMatch).delete()
             session.commit()
@@ -77,6 +81,29 @@ class TestDatabase(TestCaseDatabase):
         with self.current_app.session_scope() as session:
             session.query(ConfidenceLookup).delete()
             session.commit()
+
+    def add_eprint_bibstem_lookup_table(self):
+        """
+
+        :return:
+        """
+        eprint_bibstem_lookup_table = [
+            EPrintBibstemLookup(name='arXiv', pattern=r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'),
+            EPrintBibstemLookup(name='Earth Science', pattern=r'^(\d\d\d\d(?:EaArX|esoar))'),
+        ]
+        with self.current_app.session_scope() as session:
+            session.bulk_save_objects(eprint_bibstem_lookup_table)
+            session.commit()
+
+    def delete_eprint_bibstem_lookup_table(self):
+        """
+
+        :return:
+        """
+        with self.current_app.session_scope() as session:
+            session.query(EPrintBibstemLookup).delete()
+            session.commit()
+
 
     def test_get_a_record(self):
         """
@@ -191,6 +218,8 @@ class TestDatabase(TestCaseDatabase):
                          'title': ['Molecular hydrodynamics of a weakly degenerate nonideal bose-gas II. Green functions and kinetic coefficients'],
                          'year': '1995'}]
 
+        self.add_eprint_bibstem_lookup_table()
+
         # case when multiple arXiv can be matched against one publisher
         # best match for this second arXiv paper is the publisher's first paper, the publisher's second paper not yet published
         best_match = {'source_bibcode': '2022arXiv220606316S',
@@ -201,6 +230,9 @@ class TestDatabase(TestCaseDatabase):
         matches = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
         self.assertEqual(len(matches), 1)
         self.assertDictEqual(matches[0], best_match)
+
+        # it will get added again in stub_data
+        self.delete_eprint_bibstem_lookup_table()
 
         # now insert the match of first arXiv paper and first publisher to the db
         self.add_stub_data()
@@ -218,6 +250,8 @@ class TestDatabase(TestCaseDatabase):
         to be recognized as such
         :return:
         """
+        self.add_stub_data()
+
         # add prev match to database
         prev_match = {'source_bibcode': '2021arXiv210911714Q',
                       'matched_bibcode': '2022MNRAS.tmp.1429J',
@@ -260,6 +294,8 @@ class TestDatabase(TestCaseDatabase):
 
         :return:
         """
+        self.add_stub_data()
+
         # add records to db, including multiple matches
         matches = [
             {'source_bibcode': '2021arXiv210911714Q', 'matched_bibcode': '2022MNRAS.tmp.1429J', 'confidence': 0.982056},

@@ -9,7 +9,7 @@ from sqlalchemy import or_, and_, desc, func, distinct
 from sqlalchemy.sql import exists
 from sqlalchemy.dialects.postgresql import insert
 
-from oraclesrv.models import DocMatch, ConfidenceLookup
+from oraclesrv.models import DocMatch, ConfidenceLookup, EPrintBibstemLookup
 
 re_doi = re.compile(r'\bdoi:\s*(10\.[\d\.]{2,9}/\S+\w)', re.IGNORECASE)
 def get_solr_data(rows, query, fl):
@@ -255,10 +255,12 @@ def add_a_record(protobuf_docmatch, source_bibcode_doctype=None):
     :param source_bibcode_doctype:
     :return:
     """
+    eprint_bibstems, _ = query_eprint_bibstem()
     try:
         with current_app.session_scope() as session:
             try:
-                docmatch = DocMatch(protobuf_docmatch['source_bibcode'], protobuf_docmatch['matched_bibcode'], protobuf_docmatch['confidence'], None, source_bibcode_doctype)
+                docmatch = DocMatch(protobuf_docmatch['source_bibcode'], protobuf_docmatch['matched_bibcode'],
+                                    protobuf_docmatch['confidence'], eprint_bibstems, None, source_bibcode_doctype)
                 found = session.query(exists().where(and_(DocMatch.eprint_bibcode == docmatch.eprint_bibcode,
                                                           DocMatch.pub_bibcode == docmatch.pub_bibcode,
                                                           DocMatch.confidence == docmatch.confidence))).scalar()
@@ -283,9 +285,10 @@ def get_a_record(source_bibcode, matched_bibcode):
     :param matched_bibcode:
     :return:
     """
+    eprint_bibstems, _ = query_eprint_bibstem()
     try:
         with current_app.session_scope() as session:
-            docmatch = DocMatch(source_bibcode, matched_bibcode, confidence=-1)
+            docmatch = DocMatch(source_bibcode, matched_bibcode, confidence=-1, eprint_bibstems=eprint_bibstems)
             row = session.query(DocMatch).filter(or_(DocMatch.eprint_bibcode == docmatch.eprint_bibcode,
                                                      DocMatch.pub_bibcode == docmatch.pub_bibcode)).order_by(desc(DocMatch.confidence)).first()
             if row:
@@ -304,9 +307,10 @@ def get_a_matched_record(source_bibcode):
     :param source_bibcode:
     :return:
     """
+    eprint_bibstems, _ = query_eprint_bibstem()
     try:
         with current_app.session_scope() as session:
-            docmatch = DocMatch(source_bibcode='0000arXiv.........Z', matched_bibcode=source_bibcode, confidence=-1)
+            docmatch = DocMatch(source_bibcode='0000arXiv.........Z', matched_bibcode=source_bibcode, confidence=-1, eprint_bibstems=eprint_bibstems)
             row = session.query(DocMatch).filter(DocMatch.pub_bibcode == docmatch.pub_bibcode).order_by(desc(DocMatch.confidence)).first()
             if row:
                 current_app.logger.debug("Fetched a record with matched bibcode only = %s."  % (source_bibcode))
@@ -325,10 +329,11 @@ def add_records(protobuf_docmatches):
     :param docmatches:
     :return: success boolean, plus a status text for retuning error message, if any, to the calling program
     """
+    eprint_bibstems, _ = query_eprint_bibstem()
     rows = []
     for protobuf_docmatch in protobuf_docmatches.docmatch_records:
         # convert to DocMatch so that eprint and pub bibcodes can be identified
-        docmatch = DocMatch(protobuf_docmatch.source_bibcode, protobuf_docmatch.matched_bibcode, protobuf_docmatch.confidence)
+        docmatch = DocMatch(protobuf_docmatch.source_bibcode, protobuf_docmatch.matched_bibcode, protobuf_docmatch.confidence, eprint_bibstems)
         rows.append({"eprint_bibcode":docmatch.eprint_bibcode,
                      "pub_bibcode": docmatch.pub_bibcode,
                      "confidence": docmatch.confidence})
@@ -367,13 +372,14 @@ def del_records(docmatches):
     :param docmatches:
     :return:
     """
+    eprint_bibstems, _ = query_eprint_bibstem()
     try:
         with current_app.session_scope() as session:
             try:
                 count = 0
                 for doc in docmatches.docmatch_records:
                     # convert to DocMatch so that eprint and pub bibcodes can be identified
-                    docmatch = DocMatch(doc.source_bibcode, doc.matched_bibcode, doc.confidence)
+                    docmatch = DocMatch(doc.source_bibcode, doc.matched_bibcode, doc.confidence, eprint_bibstems)
                     count += session.query(DocMatch).filter(and_(DocMatch.eprint_bibcode == docmatch.eprint_bibcode,
                                                                  DocMatch.pub_bibcode == docmatch.pub_bibcode,
                                                                  DocMatch.confidence == docmatch.confidence)).delete(synchronize_session=False)
@@ -639,3 +645,19 @@ def get_muti_matches():
     except SQLAlchemyError as e:
         current_app.logger.error('SQLAlchemy: ' + str(e))
         return None, 'SQLAlchemy: ' + str(e)
+
+def query_eprint_bibstem():
+    """
+
+    :return:
+    """
+    try:
+        with current_app.session_scope() as session:
+            rows = session.query(EPrintBibstemLookup).all()
+            results = []
+            for row in rows:
+                results.append(row.toJSON())
+            return results, 200
+    except SQLAlchemyError as e:
+        current_app.logger.error('SQLAlchemy: ' + str(e))
+        return [], 404

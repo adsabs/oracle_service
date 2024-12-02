@@ -15,20 +15,34 @@ class DocMatch(Base):
     confidence = Column(Float, primary_key=False)
     date = Column(DateTime, default=func.now())
 
-    re_eprint_bibstems = re.compile(r'^(\d\d\d\d(?:arXiv|acc.phys|adap.org|alg.geom|ao.sci|astro.ph|atom.ph|bayes.an|chao.dyn|chem.ph|cmp.lg|comp.gas|cond.mat|cs|dg.ga|funct.an|gr.qc|hep.ex|hep.lat|hep.ph|hep.th|math|math.ph|mtrl.th|nlin|nucl.ex|nucl.th|patt.sol|physics|plasm.ph|q.alg|q.bio|quant.ph|solv.int|supr.con))')
-
-    def __init__(self, source_bibcode, matched_bibcode, confidence, date=None, source_bibcode_doctype=None):
+    def __init__(self, source_bibcode, matched_bibcode, confidence, eprint_bibstems, date=None, source_bibcode_doctype=None):
         """
 
         :param source_bibcode:
         :param matched_bibcode:
         :param confidence:
+        :param eprint_bibstems:
         :param date:
+        :param source_bibcode_doctype:
         """
+        self.init_eprint_regular_expressions(eprint_bibstems)
         self.eprint_bibcode = self.set_eprint_bibcode(source_bibcode, matched_bibcode, source_bibcode_doctype)
         self.pub_bibcode = self.set_pub_bibcode(self.eprint_bibcode, source_bibcode, matched_bibcode)
         self.confidence = confidence
         self.date = date
+
+    def init_eprint_regular_expressions(self, eprint_bibstems):
+        """
+        init the regular expressions to identify the eprints
+
+        :param eprint_bibstems:
+        :return:
+        """
+        for bibstem in eprint_bibstems:
+            if bibstem['name'] == 'arXiv':
+                self.re_arXiv_eprint_bibstems = re.compile(bibstem['pattern'])
+            elif bibstem['name'] == 'Earth Science':
+                self.re_earth_science_eprint_bibstems = re.compile(bibstem['pattern'])
 
     def set_eprint_bibcode(self, source_bibcode, matched_bibcode, source_bibcode_doctype):
         """
@@ -47,13 +61,20 @@ class DocMatch(Base):
                 return self.eprint_bibcode
 
         # if no doctype provided, attempt to identify the type from bibcode
-        if self.re_eprint_bibstems.match(source_bibcode):
+        if self.re_arXiv_eprint_bibstems.match(source_bibcode):
             self.eprint_bibcode = source_bibcode
             return self.eprint_bibcode
-        if self.re_eprint_bibstems.match(matched_bibcode):
+        if self.re_arXiv_eprint_bibstems.match(matched_bibcode):
+            self.eprint_bibcode = matched_bibcode
+            return self.eprint_bibcode
+        if self.re_earth_science_eprint_bibstems.match(source_bibcode):
+            self.eprint_bibcode = source_bibcode
+            return self.eprint_bibcode
+        if self.re_earth_science_eprint_bibstems.match(matched_bibcode):
             self.eprint_bibcode = matched_bibcode
             return self.eprint_bibcode
 
+        # unable to detect eprint match
         self.eprint_bibcode = ''
         return self.eprint_bibcode
 
@@ -110,4 +131,30 @@ class ConfidenceLookup(Base):
         return {
             'source': self.source,
             'confidence': self.confidence,
+        }
+
+
+
+class EPrintBibstemLookup(Base):
+    __tablename__ = 'eprint_bibstem_lookup'
+    name = Column(String, primary_key=True)
+    pattern = Column(String, primary_key=False)
+
+    def __init__(self, name, pattern):
+        """
+
+        :param name:
+        :param pattern:
+        """
+        self.name = name
+        self.pattern = pattern
+
+    def toJSON(self):
+        """
+
+        :return: values formatted as python dict
+        """
+        return {
+            'name': self.name,
+            'pattern': self.pattern,
         }
