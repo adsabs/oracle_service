@@ -41,6 +41,7 @@ class DocMatching(object):
         self.match_doctype = get_requests_params(payload, 'match_doctype', default_type=list)
         self.source_bibcode = get_requests_params(payload, 'bibcode')
         self.save_to_db = save
+        self.extra_filter = get_requests_params(payload, 'extra_filter')
 
     def create_and_return_response(self, match, query, comment=None):
         """

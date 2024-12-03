@@ -224,6 +224,9 @@ def add():
     if len(payload) == 0:
         return return_response({'error': 'no records received to update db'}, 400)
 
+    if len(payload) > current_app.config['ORACLE_MAX_RECORDS_ADD']:
+        return return_response({'error': 'too many records to add to db at one time, received %s records while the limit is %s'%(len(payload), current_app.config['ORACLE_MAX_RECORDS_ADD'])}, 400)
+
     current_app.logger.info('received request to populate db with %d records' % (len(payload)))
 
     try:
@@ -253,6 +256,9 @@ def delete():
 
     if len(payload) == 0:
         return return_response({'error': 'no records received to delete from db'}, 400)
+
+    if len(payload) > current_app.config['ORACLE_MAX_RECORDS_DEL']:
+        return JsonResponse({'error': 'too many records to delete to db at one time, received %s records while the limit is %s'%(len(bibcodes), current_app.config['ORACLE_MAX_RECORDS_DEL'])}, 400)
 
     current_app.logger.info('received request to delete from db %d bibcodes' % (len(payload)))
 

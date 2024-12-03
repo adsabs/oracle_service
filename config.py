@@ -843,3 +843,9 @@ ORACLE_SERVICE_LAST_NAME_ONLY = 0.8
 ORACLE_SERVICE_THESIS_YEAR_DELTA = 5
 # other doctype (ie, erratum, bookreview, etc) year range
 ORACLE_SERVICE_GENERAL_YEAR_DELTA = 2
+
+
+# number of records that can be inserted/updated in one call
+ORACLE_MAX_RECORDS_ADD = 100
+# number of records that can be deleted in one call
+ORACLE_MAX_RECORDS_DEL = 100
