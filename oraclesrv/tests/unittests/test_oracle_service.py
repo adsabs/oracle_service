@@ -11,6 +11,7 @@ import requests
 from requests.exceptions import HTTPError
 from requests.models import Response
 
+import oraclesrv.app as app
 from oraclesrv.tests.unittests.base import TestCaseDatabase
 from oraclesrv.views import get_user_info_from_adsws, cleanup, list_tmps, list_multis
 from oraclesrv.score import clean_metadata, get_matches, to_unicode
@@ -635,25 +636,23 @@ class test_oracle(TestCaseDatabase):
                                'confidence': 0.8989977, 'matched': 1,
                                'scores': {'abstract': None, 'title': 1.0, 'author': 1, 'year': 1}}])
 
-    # def test_query_endpoint(self):
-    #     """
-    #     Test query endpoint with and without params passing in
-    #     :return:
-    #     """
-    #     r = self.client.post(path='/query')
-    #     result = json.loads(r.data)
-    #     self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192], ['2022arXiv221016332G', '2023A&A...669A...7G', 0.9859276]]})
-    #
-    #     # set the rows to a larger number and see that it is reset
-    #     r = self.client.post(path='/query', data=json.dumps({'rows': 3000, 'start': 0}))
-    #     result = json.loads(r.data)
-    #     self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192], ['2022arXiv221016332G', '2023A&A...669A...7G', 0.9859276]]})
+    def test_query_endpoint(self):
+        """
+        Test query endpoint with and without params passing in
+        """
+        r = self.client.post(path='/query')
+        result = json.loads(r.data)
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192], ['2022arXiv221016332G', '2023A&A...669A...7G', 0.9859276]]})
+
+        # set the rows to a larger number and see that it is reset
+        r = self.client.post(path='/query', data=json.dumps({'rows': 3000, 'start': 0}))
+        result = json.loads(r.data)
+        self.assertDictEqual(result, {'params': {'rows': 2000, 'start': 0, 'date_cutoff': '1972-01-01 00:00:00+00:00'}, 'results': [['2018arXiv180310259Z', '2017PhDT........67Z', 0.8730186], ['2017arXiv171011147R', '2018Natur.556..473R', 0.8745491], ['2019arXiv190500882A', '2019JHEP...06..121A', 0.8960806], ['2019arXiv190804722C', '2019JHEP...10..244S', 0.8865355], ['2020arXiv200210896G', '2020A&A...635A.193G', 0.8988905], ['2019arXiv190802041G', '2020Icar..33613407G', 0.8766192], ['2022arXiv221016332G', '2023A&A...669A...7G', 0.9859276]]})
 
     @mock.patch('oraclesrv.utils.query_eprint_bibstem')
     def test_get_matches(self, mock_query_eprint_bibstem):
         """
 
-        :return:
         """
         # mock the eprint_bibstem patterns
         mock_query_eprint_bibstem.return_value = (
@@ -721,7 +720,6 @@ class test_oracle(TestCaseDatabase):
     def test_get_match_for_pub_with_doi(self, mock_query_eprint_bibstem):
         """
         Test matching publication with doi
-        :return:
         """
         # mock the eprint_bibstem patterns
         mock_query_eprint_bibstem.return_value = (
@@ -916,7 +914,6 @@ class test_oracle(TestCaseDatabase):
     def test_list_multis_get(self):
         """
         Test list_multis endpoint
-        :return:
         """
         return_value = [
             ["1995hep.ph....2279S", "1995PThPS.120...57S", 1.1],
@@ -932,7 +929,6 @@ class test_oracle(TestCaseDatabase):
     def test_get_solr_data_chunk(self):
         """
 
-        :return:
         """
 
         def create_response(text):
@@ -1047,6 +1043,201 @@ class test_oracle(TestCaseDatabase):
             # all info in returned in one chunk
             self.assertEqual(len(bibcodes), len(expected))
             self.assertEqual(docs, expected)
+
+    def test_query_doi(self):
+        """
+        Test the query_doi function of DocMatching when solr returns no results or no matches are found.
+        """
+        payload = {
+            'doi': ['10.1234/mock.doi'],
+            'doctype': 'eprint',
+            'match_doctype': ['article']
+        }
+        comment = 'some DOI query'
+        doc_match = DocMatching(payload)
+
+        with mock.patch('oraclesrv.doc_matching.get_solr_data_match_doi') as mock_get_solr_data_match_doi:
+            with mock.patch.object(self.current_app.logger, 'debug') as mock_debug:
+
+                # when solr returns no results
+                mock_get_solr_data_match_doi.return_value = ([], 'mock_query', 200)
+                result, updated_comment = doc_match.query_doi(comment)
+
+                self.assertIsNone(result)
+                self.assertIn('No result from solr with DOI', updated_comment)
+                mock_debug.assert_any_call('No result from solr with DOI %s.' % payload['doi'])
+
+                # when solr returns results, but no matches are found
+                mock_get_solr_data_match_doi.return_value = ([{'bibcode': '2000Bibcode.......A'}], 'mock_query', 200)
+                with mock.patch('oraclesrv.doc_matching.get_doi_match') as mock_get_doi_match:
+                    mock_get_doi_match.return_value = None
+
+                    result, updated_comment = doc_match.query_doi(comment)
+
+                    self.assertIsNone(result)
+                    self.assertIn('No matches with DOI', updated_comment)
+                    mock_debug.assert_any_call('No matches with DOI %s, trying Abstract.' % payload['doi'])
+
+    def test_query_pubnote(self):
+        """
+        Test the query_pubnote function of DocMatching when solr returns no results or no matches are found.
+        """
+        payload = {
+            'doi': ['10.1234/mock.doi'],
+            'doctype': 'article',
+            'match_doctype': ['eprint']
+        }
+        comment = 'some pubnote query'
+        doc_match = DocMatching(payload)
+
+        with mock.patch('oraclesrv.doc_matching.get_solr_data_match_pubnote') as mock_get_solr_data_match_pubnote:
+             with mock.patch.object(self.current_app.logger, 'debug') as mock_debug:
+
+                # when solr call to return no results
+                mock_get_solr_data_match_pubnote.return_value = ([], 'mock_query', 200)
+
+                # Test the first `else` block (no results from Solr)
+                result, updated_comment = doc_match.query_pubnote(comment)
+                self.assertIsNone(result)
+                self.assertIn('No result from solr with DOI', updated_comment)
+                mock_debug.assert_any_call('No result from solr with DOI %s in pubnote.' % payload['doi'])
+
+                with mock.patch('oraclesrv.doc_matching.get_doi_match') as mock_get_doi_match:
+
+                    # when solr call to return results but no match is found
+                    mock_get_solr_data_match_pubnote.return_value = ([{'mock': 'data'}], 'mock_query', 200)
+                    mock_get_doi_match.return_value = None
+
+                    # Test the second `else` block (no matches found)
+                    result, updated_comment = doc_match.query_pubnote(comment)
+                    self.assertIsNone(result)
+                    self.assertIn('No matches with DOI', updated_comment)
+                    mock_debug.assert_any_call('No matches with DOI %s in pubnote, trying Abstract.' % payload['doi'])
+
+
+    def test_query_abstract_or_title(self):
+        """
+        Test query_abstract_or_title of DocMatching when no matches are found with abstract, and it retries with title.
+        """
+        payload = {
+            'abstract': 'Mock abstract text.',
+            'title': 'Mock title text.',
+            'doctype': 'article',
+            'match_doctype': ['eprint'],
+        }
+        comment = 'some abstract/title query'
+        doc_match = DocMatching(payload)
+
+        with mock.patch('oraclesrv.doc_matching.get_solr_data_match') as mock_get_solr_data_match, \
+                mock.patch('oraclesrv.doc_matching.get_matches', return_value=[]), \
+                mock.patch.object(self.current_app.logger, 'debug') as mock_debug:
+
+            mock_get_solr_data_match.side_effect = [
+                ([{'bibcode': '2000Bibcode.......A'}], 'mock_query_with_abstract', 200),  # some results with abstract, but no match
+                ([], 'mock_query_with_abstract', 400)  # no results with title
+            ]
+
+            result = doc_match.query_abstract_or_title(comment)
+            mock_debug.assert_any_call('No matches with Abstract, trying Title.')
+
+    def test_query_doctype(self):
+        """
+        Test query_doctype function of DocMatching when no matches are found from Solr results
+        """
+        payload = {
+            'author': 'Mock Author',
+            'year': 2021,
+            'doctype': 'article',
+            'match_doctype': ['eprint']
+        }
+        comment = 'some doctype query'
+        doc_match = DocMatching(payload)
+
+        with mock.patch('oraclesrv.doc_matching.get_solr_data_match_doctype_case') as mock_get_solr_data_match_doctype_case, \
+                mock.patch('oraclesrv.doc_matching.get_matches', return_value=None), \
+                mock.patch.object(self.current_app.logger, 'debug') as mock_debug, \
+                mock.patch.object(doc_match, 'create_and_return_response') as mock_create_response:
+
+            mock_get_solr_data_match_doctype_case.return_value = ([{'bibcode': '2021MockBibcode.......A'}], 'mock_query_with_doctype', 200)
+
+            result = doc_match.query_doctype(comment)
+
+            mock_debug.assert_any_call('No result from solr for eprint.')
+            mock_get_solr_data_match_doctype_case.assert_called_once_with(payload['author'], payload['year'], payload['doctype'], '"%s"' % '" OR "'.join(payload['match_doctype']))
+            mock_create_response.assert_called_once_with(match=None, query='mock_query_with_doctype', comment='some doctype query No result from solr for eprint.')
+
+    def test_query_abstract_or_title(self):
+        """
+        Test query_abstract_or_title function of DocMatching for several scenarios
+        """
+        payload = {
+            'abstract': 'Mock abstract text.',
+            'title': 'Mock title text.',
+            'doctype': 'article',
+            'match_doctype': ['eprint'],
+            'extra_filter': ''
+        }
+        comment = 'some query'
+        doc_match = DocMatching(payload)
+
+        with mock.patch('oraclesrv.doc_matching.get_solr_data_match') as mock_get_solr_data_match, \
+                mock.patch('oraclesrv.doc_matching.get_db_match') as mock_get_db_match, \
+                mock.patch('oraclesrv.doc_matching.get_matches') as mock_get_matches, \
+                mock.patch.object(self.current_app.logger, 'debug') as mock_debug, \
+                mock.patch.object(doc_match, 'create_and_return_response') as mock_create_response:
+
+            # when solr return error with abstract query
+            mock_get_solr_data_match.return_value = ([], 'mock_query_with_abstract', 400)
+            result = doc_match.query_abstract_or_title(comment)
+            mock_create_response.assert_any_call([], 'mock_query_with_abstract', 'status code: 400')
+
+            # when solr errors no records with abstract but then errors on title query
+            mock_get_solr_data_match.side_effect = [
+                ([], 'mock_query_with_abstract', 200),
+                ([], 'mock_query_with_title', 400),
+            ]
+            result = doc_match.query_abstract_or_title(comment)
+            mock_create_response.assert_any_call([], 'mock_query_with_title', 'status code: 400')
+
+            # when there are results from solr, but there are no matches, after no matches, query again with title, and error
+            mock_get_solr_data_match.side_effect = [
+                ([{'bibcode': '2000Bibcode.......A'}], 'mock_query_with_abstract', 200),
+                ([], 'mock_query_with_title', 400),
+            ]
+            mock_get_matches.return_value = []
+            result = doc_match.query_abstract_or_title(comment)
+            mock_create_response.assert_any_call([], 'mock_query_with_title', 'status code: 400')
+
+            # when abstract matches are returned from solr, but no match is found, query again with title, and no matches are found
+            # also no matches in the database
+            mock_get_solr_data_match.side_effect = [
+                ([{'bibcode': '2000Bibcode.......A'}], 'mock_query_with_abstract', 200),
+                ([], 'mock_query_with_title', 200),
+            ]
+            mock_get_matches.return_value = []
+            mock_get_db_match.return_value = []
+            result = doc_match.query_abstract_or_title(comment)
+            mock_create_response.assert_any_call(match='', query='mock_query_with_title', comment='some query No matches with Abstract, trying Title. No result from solr with Title. No matches in database either.')
+
+            # when abstract matches are returned from solr, but no match is found, query again with title, and no matches are found
+            # then query database and there is a matches in the database
+            mock_get_solr_data_match.side_effect = [
+                ([{'bibcode': '2000Bibcode.......A'}], 'mock_query_with_abstract', 200),
+                ([], 'mock_query_with_title', 200),
+            ]
+            mock_get_matches.return_value = []
+            mock_get_db_match.return_value = [{'bibcode': '2000Bibcode.......A'}]
+            result = doc_match.query_abstract_or_title(comment)
+            mock_create_response.assert_any_call([{'bibcode': '2000Bibcode.......A'}], 'mock_query_with_title', 'some query No matches with Abstract, trying Title. No result from solr with Title. Fetched from database.')
+
+            # when abstract matches are returned from solr, but no match is found, query again with title, there are matches
+            mock_get_solr_data_match.side_effect = [
+                ([{'bibcode': '2000Bibcode.......A'}], 'mock_query_with_abstract', 200),
+                ([{'bibcode': '2001Bibcode.......A'}], 'mock_query_with_title', 200),
+            ]
+            mock_get_matches.side_effect = [[], [{'bibcode': '2001Bibcode.......A'}]]
+            result = doc_match.query_abstract_or_title(comment)
+            mock_create_response.assert_any_call([{'bibcode': '2001Bibcode.......A'}], 'mock_query_with_title', 'some query No matches with Abstract, trying Title.')
 
 
 if __name__ == "__main__":
