@@ -331,12 +331,16 @@ def add_records(protobuf_docmatches):
     """
     eprint_bibstems, _ = query_eprint_bibstem()
     rows = []
-    for protobuf_docmatch in protobuf_docmatches.docmatch_records:
-        # convert to DocMatch so that eprint and pub bibcodes can be identified
-        docmatch = DocMatch(protobuf_docmatch.source_bibcode, protobuf_docmatch.matched_bibcode, protobuf_docmatch.confidence, eprint_bibstems)
-        rows.append({"eprint_bibcode":docmatch.eprint_bibcode,
-                     "pub_bibcode": docmatch.pub_bibcode,
-                     "confidence": docmatch.confidence})
+    try:
+        for protobuf_docmatch in protobuf_docmatches.docmatch_records:
+            # convert to DocMatch so that eprint and pub bibcodes can be identified
+            docmatch = DocMatch(protobuf_docmatch.source_bibcode, protobuf_docmatch.matched_bibcode, protobuf_docmatch.confidence, eprint_bibstems)
+            rows.append({"eprint_bibcode":docmatch.eprint_bibcode,
+                         "pub_bibcode": docmatch.pub_bibcode,
+                         "confidence": docmatch.confidence})
+    except ValueError as e:
+        current_app.logger.error('Error: ' + str(e))
+        return False, 'Error: ' + str(e)
 
     if len(rows) > 0:
         table = DocMatch.__table__

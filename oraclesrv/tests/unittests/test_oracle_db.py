@@ -21,21 +21,20 @@ from sqlalchemy.exc import SQLAlchemyError
 
 class TestDatabase(TestCaseDatabase):
 
-    def add_stub_data(self):
+    def add_docmatch_data(self):
         """
-        Add stub data
-        :return:
+        Add docmatch data
         """
-        self.add_eprint_bibstem_lookup_table()
+        self.add_eprint_bibstem_lookup_data()
 
-        stub_data = [
+        docmatch_data = [
                         ('2021arXiv210312030S', '2021CSF...15311505S', 0.9829099),
                         ('2017arXiv171111082H', '2018ConPh..59...16H', 0.9877064),
                         ('2018arXiv181105526S', '2022NuPhB.98015830S', 0.97300124),
         ]
 
         docmatch_records = []
-        for record in stub_data:
+        for record in docmatch_data:
             docmatch_record = {'source_bibcode': record[0],
                                'matched_bibcode': record[1],
                                'confidence': record[2]}
@@ -46,21 +45,19 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(response._status_code, 200)
         self.assertEqual(response.json['status'], 'updated db with new data successfully')
 
-    def delete_stub_data(self):
+    def delete_docmatch_data(self):
         """
 
-        :return:
         """
-        self.delete_eprint_bibstem_lookup_table()
+        self.delete_eprint_bibstem_lookup_data()
 
         with self.current_app.session_scope() as session:
             session.query(DocMatch).delete()
             session.commit()
 
-    def add_confidence_lookup_table(self):
+    def add_confidence_lookup_data(self):
         """
 
-        :return:
         """
         confidence_lookup_table = [
             ConfidenceLookup(source='ADS', confidence=1.3),
@@ -73,19 +70,17 @@ class TestDatabase(TestCaseDatabase):
             session.bulk_save_objects(confidence_lookup_table)
             session.commit()
 
-    def delete_confidence_lookup_table(self):
+    def delete_confidence_lookup_data(self):
         """
 
-        :return:
         """
         with self.current_app.session_scope() as session:
             session.query(ConfidenceLookup).delete()
             session.commit()
 
-    def add_eprint_bibstem_lookup_table(self):
+    def add_eprint_bibstem_lookup_data(self):
         """
 
-        :return:
         """
         eprint_bibstem_lookup_table = [
             EPrintBibstemLookup(name='arXiv', pattern=r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'),
@@ -95,22 +90,19 @@ class TestDatabase(TestCaseDatabase):
             session.bulk_save_objects(eprint_bibstem_lookup_table)
             session.commit()
 
-    def delete_eprint_bibstem_lookup_table(self):
+    def delete_eprint_bibstem_lookup_data(self):
         """
 
-        :return:
         """
         with self.current_app.session_scope() as session:
             session.query(EPrintBibstemLookup).delete()
             session.commit()
 
-
     def test_get_a_record(self):
         """
         test querying db for a record
-        :return:
         """
-        self.add_stub_data()
+        self.add_docmatch_data()
 
         # query for a record that exists
         record = get_a_record('2021arXiv210312030S', '2021CSF...15311505S')
@@ -122,14 +114,13 @@ class TestDatabase(TestCaseDatabase):
         record = get_a_record('2021arXiv210312030G', '2021CSF...15311505G')
         self.assertEqual(record, {})
 
-        self.delete_stub_data()
+        self.delete_docmatch_data()
 
     def test_del_records(self):
         """
         test querying db for a record
-        :return:
         """
-        self.add_stub_data()
+        self.add_docmatch_data()
 
         docmatch_records = [
             {
@@ -156,12 +147,11 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(response._status_code, 200)
         self.assertEqual(response.json['status'], 'removed 0 records of 3 requested')
 
-        self.delete_stub_data()
+        self.delete_docmatch_data()
 
     def test_docmatch(self):
         """
         test matching a record and compute the score
-        :return:
         """
         source_bibcode = '2022arXiv220606316S'
         abstract = 'In the present paper, discussion of the canonical quantization of a weakly nonideal Bose gas at zero temperature along the lines of the famous Bogolyubov approach is continued. Contrary to the previous paper on this subject, here the two-body interaction potential is considered in the general form. It is shown that consideration of the first nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach, without any modification of the resulting effective Hamiltonian.'
@@ -218,7 +208,7 @@ class TestDatabase(TestCaseDatabase):
                          'title': ['Molecular hydrodynamics of a weakly degenerate nonideal bose-gas II. Green functions and kinetic coefficients'],
                          'year': '1995'}]
 
-        self.add_eprint_bibstem_lookup_table()
+        self.add_eprint_bibstem_lookup_data()
 
         # case when multiple arXiv can be matched against one publisher
         # best match for this second arXiv paper is the publisher's first paper, the publisher's second paper not yet published
@@ -232,25 +222,30 @@ class TestDatabase(TestCaseDatabase):
         self.assertDictEqual(matches[0], best_match)
 
         # it will get added again in stub_data
-        self.delete_eprint_bibstem_lookup_table()
+        self.delete_eprint_bibstem_lookup_data()
 
         # now insert the match of first arXiv paper and first publisher to the db
-        self.add_stub_data()
+        self.add_docmatch_data()
 
-        # now attempting to get a match returns nothing
+        # now attempting to get a match returns the match with highest confidence
+        # with either source bibcode or one of the matching bibcodes
+        best_match = {'source_bibcode': '2021arXiv210312030S',
+                      'matched_bibcode': '2021CSF...15311505S',
+                      'confidence': 0.9829099,
+                      'matched': 1,
+                      'scores': {}}
         matches = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
-        self.assertEqual(len(matches), 0)
-        self.assertEqual(matches, [])
+        self.assertEqual(len(matches), 1)
+        self.assertDictEqual(matches[0], best_match)
 
-        self.delete_stub_data()
+        self.delete_docmatch_data()
 
     def test_docmatch_changed_bibcode(self):
         """
         test when the bibcode saved in db is different from the current match, but the record is the same and needs
         to be recognized as such
-        :return:
         """
-        self.add_stub_data()
+        self.add_docmatch_data()
 
         # add prev match to database
         prev_match = {'source_bibcode': '2021arXiv210911714Q',
@@ -287,14 +282,13 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(len(matches), 1)
         self.assertDictEqual(matches[0], current_match)
 
-        self.delete_stub_data()
+        self.delete_docmatch_data()
 
     def test_query(self):
         """
 
-        :return:
         """
-        self.add_stub_data()
+        self.add_docmatch_data()
 
         # add records to db, including multiple matches
         matches = [
@@ -338,14 +332,13 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(status_code, 200)
         self.assertEqual(result, [])
 
-        self.delete_stub_data()
+        self.delete_docmatch_data()
 
     def test_query_source_score(self):
         """
 
-        :return:
         """
-        self.add_confidence_lookup_table()
+        self.add_confidence_lookup_data()
         expected_results = [
             {'source': 'ADS', 'confidence': 1.3},
             {'source': 'incorrect', 'confidence': -1.0},
@@ -355,23 +348,22 @@ class TestDatabase(TestCaseDatabase):
         ]
         results, _ = query_source_score()
         self.assertEqual(results, expected_results)
-        self.delete_confidence_lookup_table()
+        self.delete_confidence_lookup_data()
 
     def test_lookup_confidence(self):
         """
 
-        :return:
         """
-        self.add_confidence_lookup_table()
+        self.add_confidence_lookup_data()
         self.assertEqual(lookup_confidence('ADS'), (1.3, 200))
         self.assertEqual(lookup_confidence('incorrect'), (-1.0, 200))
-        self.delete_confidence_lookup_table()
+        self.delete_confidence_lookup_data()
 
     def test_source_score_endpoint(self):
         """
         Test the endpoint that lists all available source/score pairs
         """
-        self.add_confidence_lookup_table()
+        self.add_confidence_lookup_data()
         expected_results = [
             {'source': 'ADS', 'confidence': 1.3},
             {'source': 'incorrect', 'confidence': -1.0},
@@ -382,26 +374,24 @@ class TestDatabase(TestCaseDatabase):
         r = self.client.get(path='/source_score')
         result = json.loads(r.data)
         self.assertEqual(result['results'], expected_results)
-        self.delete_confidence_lookup_table()
+        self.delete_confidence_lookup_data()
 
     def test_lookup_confidence_endpoint(self):
         """
         Test the endpoint that returns confidence for a source
-        :return:
         """
-        self.add_confidence_lookup_table()
+        self.add_confidence_lookup_data()
         r = self.client.get(path='/confidence/ADS')
         result = json.loads(r.data)
         self.assertEqual(result['confidence'], 1.3)
         r = self.client.get(path='/confidence/incorrect')
         result = json.loads(r.data)
         self.assertEqual(result['confidence'], -1.0)
-        self.delete_confidence_lookup_table()
+        self.delete_confidence_lookup_data()
 
     def test_get_solr_data_exception(self):
         """
         Test when there is an SQLAlchemyError exception
-        :return:
         """
         with mock.patch.object(self.current_app, 'session_scope') as exception_mock:
             sql_alchemy_error = SQLAlchemyError('DB not initialized properly, check: SQLALCHEMY_URL')
@@ -468,10 +458,9 @@ class TestDatabase(TestCaseDatabase):
     def test_delete_tmp_matches(self):
         """
 
-        :return:
         """
         # add stub data and verify that there are 3 records in db
-        self.add_stub_data()
+        self.add_docmatch_data()
         result, status_code = query_docmatch({'start': 0, 'rows':10, 'date_cutoff': get_date('1972/01/01 00:00:00')})
         self.assertEqual(status_code, 200)
         self.assertEqual(len(result), 3)
@@ -517,15 +506,14 @@ class TestDatabase(TestCaseDatabase):
         self.assertNotEqual(result['pub_bibcode'], '2023MNRAS.tmp.1147K')
         self.assertEqual(result['pub_bibcode'], '2023MNRAS.522.3648K')
 
-        self.delete_stub_data()
+        self.delete_docmatch_data()
 
     def test_replace_tmp_with_canonical(self):
         """
 
-        :return:
         """
-        self.add_stub_data()
-        self.add_confidence_lookup_table()
+        self.add_docmatch_data()
+        self.add_confidence_lookup_data()
 
         # test when there is no record to replace
         count, status = replace_tmp_with_canonical()
@@ -586,15 +574,14 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(record['pub_bibcode'], '2023MNRAS.523.4624V')
         self.assertEqual(record['confidence'], 0.9942136)
 
-        self.delete_confidence_lookup_table()
-        self.delete_stub_data()
+        self.delete_confidence_lookup_data()
+        self.delete_docmatch_data()
 
     def test_delete_multi_matches(self):
         """
 
-        :return:
         """
-        self.add_stub_data()
+        self.add_docmatch_data()
 
         # add multiple matches
         # note that there can be multiple low values (ie, two or more matches with confidence -1)
@@ -658,27 +645,25 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(count, 7)
         self.assertEqual(status, '')
 
-        self.delete_stub_data()
+        self.delete_docmatch_data()
 
     def test_clean_db(self):
         """
 
-        :return:
         """
-        self.add_stub_data()
+        self.add_docmatch_data()
 
         counts, status = clean_db()
         self.assertEqual(counts, {'count_deleted_tmp': 0, 'count_updated_canonical': 0, 'count_deleted_multi_matches': 0})
         self.assertEqual(status, '')
 
-        self.delete_stub_data()
+        self.delete_docmatch_data()
 
     def test_get_tmp_bibcodes(self):
         """
 
-        :return:
         """
-        self.add_stub_data()
+        self.add_docmatch_data()
 
         # add matches with tmp bibcodes
         tmp_matches = [
@@ -705,14 +690,13 @@ class TestDatabase(TestCaseDatabase):
                                    ('2023arXiv230603140V', '2023MNRAS.tmp.1672V', 0.9942136)])
         self.assertEqual(status, 200)
 
-        self.delete_stub_data()
+        self.delete_docmatch_data()
 
     def test_get_muti_matches(self):
         """
 
-        :return:
         """
-        self.add_stub_data()
+        self.add_docmatch_data()
 
         multi_matches = [
             {
@@ -782,7 +766,58 @@ class TestDatabase(TestCaseDatabase):
                                    ('2022arXiv220500682A', '2023PhRvC.107e4908A', 0.9833502)])
         self.assertEqual(status, 200)
 
-        self.delete_stub_data()
+        self.delete_docmatch_data()
+
+    def test_adding_earth_science_records(self):
+        """
+
+        """
+        self.add_eprint_bibstem_lookup_data()
+
+        docmatch_data = [
+                        ('2017EaArX....2FDCTH', '2018Litho.314..360H', 1.3),
+                        ('2017EaArX....2RGV5B', '2013ChGeo.347...82B', 1.3),
+                        ('2016ESRv..155...49L', '2017EaArX....3T65DL', 1.3),
+        ]
+
+        docmatch_records = []
+        for record in docmatch_data:
+            docmatch_record = {'source_bibcode': record[0],
+                               'matched_bibcode': record[1],
+                               'confidence': record[2]}
+            docmatch_records.append(docmatch_record)
+
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        response = self.client.put('/add', data=json.dumps(docmatch_records), headers=headers)
+        self.assertEqual(response._status_code, 200)
+        self.assertEqual(response.json['status'], 'updated db with new data successfully')
+
+        self.delete_docmatch_data()
+
+    def test_add_unrecognizable_match(self):
+        """
+
+        """
+        self.add_eprint_bibstem_lookup_data()
+
+        docmatch_data = [
+                        ('2017EaarX....2FDCTH', '2018Litho.314..360H', 1.3),
+        ]
+
+        docmatch_records = []
+        for record in docmatch_data:
+            docmatch_record = {'source_bibcode': record[0],
+                               'matched_bibcode': record[1],
+                               'confidence': record[2]}
+            docmatch_records.append(docmatch_record)
+
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        response = self.client.put('/add', data=json.dumps(docmatch_records), headers=headers)
+        self.assertEqual(response._status_code, 400)
+        self.assertEqual(response.json['error'], 'Error: Invalid EPrint Bibcode.')
+
+        self.delete_docmatch_data()
+
 
 if __name__ == "__main__":
     unittest.main()

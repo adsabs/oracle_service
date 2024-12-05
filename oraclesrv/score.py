@@ -45,18 +45,18 @@ def count_matching_authors(ref_authors, ads_authors):
                 missing_in_ads += 1
 
         first_author_missing = fuzz.partial_ratio(ads_authors[0], ref_authors_norm[0]) < current_app.config['ORACLE_SERVICE_FIRST_AUTHOR_MATCH_THRESHOLD']
-    except:
-        pass
 
-    # because of formatting issues ref_authors might be missing first initials
-    # hence if nothing matches, see if last names match
-    # but need to penalize that only last names were matched
-    if matching_authors == 0:
-        ads_authors_lastname = [a.split(",")[0].strip() for a in ads_authors]
-        matching_authors = round(len(set(ads_authors_lastname) & set(ref_authors_lastname)) * current_app.config['ORACLE_SERVICE_LAST_NAME_ONLY'])
-        if matching_authors > 0:
-            missing_in_ref = len(ref_authors_lastname) - matching_authors
-            missing_in_ads = len(ads_authors_lastname) - matching_authors
+        # because of formatting issues ref_authors might be missing first initials
+        # hence if nothing matches, see if last names match
+        # but need to penalize that only last names were matched
+        if matching_authors == 0:
+            ads_authors_lastname = [a.split(",")[0].strip() for a in ads_authors]
+            matching_authors = round(len(set(ads_authors_lastname) & set(ref_authors_lastname)) * current_app.config['ORACLE_SERVICE_LAST_NAME_ONLY'])
+            if matching_authors > 0:
+                missing_in_ref = len(ref_authors_lastname) - matching_authors
+                missing_in_ads = len(ads_authors_lastname) - matching_authors
+    except Exception as e:
+        current_app.logger.error(f"Error in counting authors: {e}")
 
     return (missing_in_ref, missing_in_ads, matching_authors, first_author_missing)
 
@@ -207,18 +207,19 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
             # see if the confidence is higher then the current match
             # and if yes, ignore current match
             elif (source_bibcode in prev_bibcodes or match_bibcode in prev_bibcodes) and prev_confidence > confidence:
-                if (source_bibcode in prev_bibcodes and match_bibcode in prev_bibcodes):
-                    confidence = prev_confidence
-                    scores = []
-                else:
-                    continue
+                confidence = prev_confidence
+                scores = []
+                if not (source_bibcode in prev_bibcodes and match_bibcode in prev_bibcodes):
+                    source_bibcode = prev_match['eprint_bibcode']
+                    match_bibcode = prev_match['pub_bibcode']
 
         result = {'source_bibcode': source_bibcode, 'matched_bibcode': match_bibcode,
                   'confidence': confidence, 'matched': int(confidence > 0.5),
                   'scores': {'abstract':scores[0], 'title': scores[1], 'author': scores[2], 'year': scores[3]} if scores else {}}
         if len(scores) == 5:
             result['scores'].update({'doi': scores[4]})
-        results.append(result)
+        if result not in results:
+            results.append(result)
 
     if len(results) == 0:
         return []
@@ -388,10 +389,12 @@ def encode_author(author):
     :param author:
     :return:
     """
-    author = lxml.html.fromstring(author).text
-    if isinstance(author, str):
-        return unidecode.unidecode(remove_control_chars_author(to_unicode(author)))
-    return author
+    try:
+        author = lxml.html.fromstring(author).text
+        if isinstance(author, str):
+            return unidecode.unidecode(remove_control_chars_author(to_unicode(author)))
+    except:
+        return author
 
 RE_INITIAL = re.compile(r'\. *(?!,)')
 def format_author(author):
