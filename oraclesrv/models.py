@@ -31,6 +31,9 @@ class DocMatch(Base):
         self.confidence = confidence
         self.date = date
 
+        if not self.eprint_bibcode:
+            raise ValueError("Invalid EPrint Bibcode.")
+
     def init_eprint_regular_expressions(self, eprint_bibstems):
         """
         init the regular expressions to identify the eprints
@@ -67,6 +70,7 @@ class DocMatch(Base):
         if self.re_arXiv_eprint_bibstems.match(matched_bibcode):
             self.eprint_bibcode = matched_bibcode
             return self.eprint_bibcode
+        # earth scince bibcodes
         if self.re_earth_science_eprint_bibstems.match(source_bibcode):
             self.eprint_bibcode = source_bibcode
             return self.eprint_bibcode

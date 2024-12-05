@@ -14,7 +14,8 @@ from requests.models import Response
 import oraclesrv.app as app
 from oraclesrv.tests.unittests.base import TestCaseDatabase
 from oraclesrv.views import get_user_info_from_adsws, cleanup, list_tmps, list_multis
-from oraclesrv.score import clean_metadata, get_matches, to_unicode
+from oraclesrv.score import clean_metadata, get_matches, to_unicode, get_db_match, count_matching_authors, get_year_score, \
+    encode_author, get_doi_match, get_author_score
 from oraclesrv.doc_matching import DocMatching
 from oraclesrv.utils import get_solr_data_recommend, get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_pubnote, \
     get_solr_data_match_doctype_case, get_solr_data_chunk
@@ -652,7 +653,7 @@ class test_oracle(TestCaseDatabase):
     @mock.patch('oraclesrv.utils.query_eprint_bibstem')
     def test_get_matches(self, mock_query_eprint_bibstem):
         """
-
+        Test get_matches function of the score module
         """
         # mock the eprint_bibstem patterns
         mock_query_eprint_bibstem.return_value = (
@@ -715,6 +716,159 @@ class test_oracle(TestCaseDatabase):
                                         'confidence': 0.9899692,
                                         'matched': 1,
                                         'scores': {'abstract': None, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1}})
+
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_get_matches_multi_hits(self, mock_query_eprint_bibstem):
+        """
+        Test get_matches function of the score module when there are multiple matches
+        """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
+        source_bibcode = '2022arXiv220606316S'
+        abstract = 'In the present paper, discussion of the canonical quantization of a weakly nonideal Bose gas at zero temperature along the lines of the famous Bogolyubov approach is continued. Contrary to the previous paper on this subject, here the two-body interaction potential is considered in the general form. It is shown that consideration of the first nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach, without any modification of the resulting effective Hamiltonian.'
+        title = 'Nonlinear corrections in the quantization of a weakly nonideal Bose gas   at zero temperature. II. The general case'
+        author = 'Smolyakov, Mikhail N.'
+        year = 2022
+        doi = ['10.1016/j.chaos.2021.111505']
+
+        # when multiple matches are found, and one record is returned
+        matched_docs = [{'bibcode': '2021CSF...15311505S',
+                         'abstract': 'In the present paper, quantization of a weakly nonideal Bose gas at zero temperature along the lines of the well-known Bogolyubov approach is performed. The analysis presented in this paper is based, in addition to the steps of the original Bogolyubov approach, on the use of nonoscillation modes (which are also solutions of the linearized Heisenberg equation) for recovering the canonical commutation relations in the linear approximation, as well as on the calculation of the first nonlinear correction to the solution of the linearized Heisenberg equation which satisfies the canonical commutation relations at the next order. It is shown that, at least in the case of free quasi-particles, consideration of the nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach.',
+                         'author_norm': ['Smolyakov, M'],
+                         'doctype': 'article',
+                         'doi': ['10.1016/j.chaos.2021.111505'],
+                         'identifier': ['10.1016/j.chaos.2021.111505', 'arXiv:2103.12030', '2021CSF...15311505S', '2021arXiv210312030S'],
+                         'title': ['Nonlinear corrections in the quantization of a weakly nonideal Bose gas at zero temperature'],
+                         'year': '2021',
+                         'property': ['ARTICLE','EPRINT_OPENACCESS','ESOURCE','OPENACCESS','REFEREED']},
+                        {'bibcode': '2024NYASA1531...15S',
+                         'abstract': 'In the present paper, quantization of a weakly nonideal Bose gas at zero temperature along the lines of the well-known Bogolyubov approach is performed. The analysis presented in this paper is based, in addition to the steps of the original Bogolyubov approach, on the use of nonoscillation modes (which are also solutions of the linearized Heisenberg equation) for recovering the canonical commutation relations in the linear approximation, as well as on the calculation of the first nonlinear correction to the solution of the linearized Heisenberg equation which satisfies the canonical commutation relations at the next order. It is shown that, at least in the case of free quasi-particles, consideration of the nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach.',
+                         'author_norm': ['Smolyakov, M'],
+                         'doctype': 'article',
+                         'identifier': ['10.1016/j.chaos.2021.111505', 'arXiv:2103.12030', '2021CSF...15311505S', '2021arXiv210312030S'],
+                         'title': ['Nonlinear corrections in the quantization of a weakly nonideal Bose gas at zero temperature'],
+                         'year': '2024',
+                         'property': ['ARTICLE', 'ESOURCE', 'NOT REFEREED']}
+                        ]
+
+        match = get_matches(source_bibcode, '', title, author, year, doi, matched_docs)
+        self.assertEqual(len(match), 1)
+        self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
+                                        'matched_bibcode': '2021CSF...15311505S',
+                                        'confidence': 0.9899692,
+                                        'matched': 1,
+                                        'scores': {'abstract': None, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1}})
+
+        # when multiple matches are found by solr, but too close to call
+        matched_docs = [{'bibcode': '2001CSF...15311505S',
+                         'abstract': 'In the present paper, quantization of a weakly Bose gas at zero along the lines of the well-known Bogolyubov is performed. The analysis presented in this paper is based, in addition to the steps of the original Bogolyubov, on the use of nonoscillation modes (which are solutions of the linearized Heisenberg equation) for recovering the canonical commutation in the linear approximation, as well as on the of the first nonlinear correction to the solution of the Heisenberg equation which satisfies the canonical commutation relations at the next order. It is that, at least in the case of quasi-particles, consideration of the nonlinear correction solves the problem of nonconserved particle number, which is inherent to the original approach.',
+                         'author_norm': ['Smolyakov, M'],
+                         'doctype': 'article',
+                         'title': ['Nonlinear corrections in the quantization of a weakly nonideal Bose gas at zero temperature'],
+                         'year': '2001',
+                         'property': ['ARTICLE','EPRINT_OPENACCESS','ESOURCE','OPENACCESS','REFEREED']},
+                        {'bibcode': '2004NYASA1531...15S',
+                         'abstract': 'In the present paper, quantization of a weakly nonideal Bose gas at zero temperature along the lines of the well-known Bogolyubov approach is performed. The analysis presented in this paper is based, in addition to the steps of the original Bogolyubov approach, on the use of modes (which are also solutions of the linearized Heisenberg equation) for recovering the canonical commutation relations in the linear approximation, as well as on the calculation of the first nonlinear correction to the solution of the linearized Heisenberg equation which satisfies the commutation relations at the next order. It is shown that, at least in the case of free quasi-particles, consideration of the correction automatically solves the problem of particle number, which is inherent to the approach.',
+                         'author_norm': ['Smolyakov, M'],
+                         'doctype': 'article',
+                         'title': ['Nonlinear corrections in the quantization of a weakly nonideal Bose gas at zero temperature'],
+                         'year': '2004',
+                         'property': ['ARTICLE', 'ESOURCE', 'NOT REFEREED']}
+                        ]
+
+        match = get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs)
+
+        self.assertEqual(len(match), 2)
+        self.assertEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
+                                    'matched_bibcode': '2004NYASA1531...15S',
+                                    'confidence': 0.0225319,
+                                    'matched': 0,
+                                    'scores': {'abstract': 0.75, 'title': 0.98, 'author': 1, 'year': 0}})
+        self.assertEqual(match[1], {'source_bibcode': '2022arXiv220606316S',
+                                    'matched_bibcode': '2001CSF...15311505S',
+                                    'confidence': 0.0164414,
+                                    'matched': 0,
+                                    'scores': {'abstract': 0.73, 'title': 0.98, 'author': 1, 'year': 0}})
+
+    @mock.patch('oraclesrv.score.get_a_record')
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_get_matches_when_prev_match_exist(self, mock_query_eprint_bibstem, mock_get_a_record):
+        """
+        Test get_matches function of the score module when there is a prev match
+        """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
+        source_bibcode = '2022arXiv220606316S'
+        abstract = 'In the present paper, discussion of the canonical quantization of a weakly nonideal Bose gas at zero temperature along the lines of the famous Bogolyubov approach is continued. Contrary to the previous paper on this subject, here the two-body interaction potential is considered in the general form. It is shown that consideration of the first nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach, without any modification of the resulting effective Hamiltonian.'
+        title = 'Nonlinear corrections in the quantization of a weakly nonideal Bose gas   at zero temperature. II. The general case'
+        author = 'Smolyakov, Mikhail N.'
+        year = 2022
+        doi = ['10.1016/j.chaos.2021.111505']
+
+        matched_docs = [{'bibcode': '2021CSF...15311505S',
+                         'abstract': 'In the present paper, quantization of a weakly nonideal Bose gas at zero temperature along the lines of the well-known Bogolyubov approach is performed. The analysis presented in this paper is based, in addition to the steps of the original Bogolyubov approach, on the use of nonoscillation modes (which are also solutions of the linearized Heisenberg equation) for recovering the canonical commutation relations in the linear approximation, as well as on the calculation of the first nonlinear correction to the solution of the linearized Heisenberg equation which satisfies the canonical commutation relations at the next order. It is shown that, at least in the case of free quasi-particles, consideration of the nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach.',
+                         'author_norm': ['Smolyakov, M'],
+                         'doctype': 'article',
+                         'doi': ['10.1016/j.chaos.2021.111505'],
+                         'identifier': ['10.1016/j.chaos.2021.111505', 'arXiv:2103.12030', '2021CSF...15311505S', '2021arXiv210312030S'],
+                         'title': ['Nonlinear corrections in the quantization of a weakly nonideal Bose gas at zero temperature'],
+                         'year': '2021',
+                         'property': ['ARTICLE','EPRINT_OPENACCESS','ESOURCE','OPENACCESS','REFEREED']}]
+
+
+        # mock the previous match with higher confidence
+        mock_get_a_record.return_value = {
+            'eprint_bibcode': '2022arXiv220606316S',
+            'pub_bibcode': '2022CSF...27421615S',
+            'confidence': 0.9
+        }
+
+        match = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
+        self.assertEqual(len(match), 1)
+        self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
+                                        'matched_bibcode': '2022CSF...27421615S',
+                                        'confidence': 0.9,
+                                        'matched': 1,
+                                        'scores': {}})
+
+    def test_get_matches_when_source_and_match_equal(self):
+        """
+        Test get_matches function of the score module when source bibcode and match bibcode are the same
+        """
+        source_bibcode = '2022arXiv220606316S'
+        abstract = 'In the present paper, discussion of the canonical quantization of a weakly nonideal Bose gas at zero temperature along the lines of the famous Bogolyubov approach is continued. Contrary to the previous paper on this subject, here the two-body interaction potential is considered in the general form. It is shown that consideration of the first nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach, without any modification of the resulting effective Hamiltonian.'
+        title = 'Nonlinear corrections in the quantization of a weakly nonideal Bose gas   at zero temperature. II. The general case'
+        author = 'Smolyakov, Mikhail N.'
+        year = 2022
+        doi = ['10.1016/j.chaos.2021.111505']
+
+        # when match and source are the same
+        matched_docs = [{'bibcode': '2022arXiv220606316S',
+                         'abstract': 'In the present paper, discussion of the canonical quantization of a weakly nonideal Bose gas at zero temperature along the lines of the famous Bogolyubov approach is continued. Contrary to the previous paper on this subject, here the two-body interaction potential is considered in the general form. It is shown that consideration of the first nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach, without any modification of the resulting effective Hamiltonian.',
+                         'author_norm': ['Smolyakov, M'],
+                         'doctype': 'article',
+                         'doi': ['10.1016/j.chaos.2021.111505'],
+                         'identifier': ['10.1016/j.chaos.2021.111505', 'arXiv:2103.12030', '2021CSF...15311505S', '2021arXiv210312030S'],
+                         'title': ['Nonlinear corrections in the quantization of a weakly nonideal Bose gas   at zero temperature. II. The general case'],
+                         'year': '2022',
+                         'property': ['ARTICLE', 'ESOURCE', 'NOT REFEREED']}
+                        ]
+        match = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
+        self.assertEqual(match, [])
 
     @mock.patch('oraclesrv.utils.query_eprint_bibstem')
     def test_get_match_for_pub_with_doi(self, mock_query_eprint_bibstem):
@@ -820,7 +974,9 @@ class test_oracle(TestCaseDatabase):
         """
         Test to_unicode in the score module
         """
-        self.assertEqual(to_unicode(u'A unicode \u018e string \xf1'), 'A unicode Ǝ string ñ')
+        self.assertEqual(to_unicode('a unicode \u018e string \xf1'), 'a unicode Ǝ string ñ')
+        self.assertEqual(to_unicode('copyright symbol: &copy; and trademark symbol &trade;'), 'copyright symbol: © and trademark symbol ™')
+        self.assertEqual(to_unicode('send &unrecognizable; code to return'), 'send  code to return')
 
     def test_docmatching_process(self):
         """
@@ -1238,6 +1394,101 @@ class test_oracle(TestCaseDatabase):
             mock_get_matches.side_effect = [[], [{'bibcode': '2001Bibcode.......A'}]]
             result = doc_match.query_abstract_or_title(comment)
             mock_create_response.assert_any_call([{'bibcode': '2001Bibcode.......A'}], 'mock_query_with_title', 'some query No matches with Abstract, trying Title.')
+
+    def test_get_db_match(self):
+        """
+        Test get_db_match function of the score module
+        """
+        # mocked record returned by get_a_matched_record
+        with mock.patch('oraclesrv.score.get_a_matched_record') as mock_get_a_matched_record:
+            mock_get_a_matched_record.return_value = {
+                'pub_bibcode': '2021arXiv210312030S',
+                'eprint_bibcode': '2021CSF...15311505S',
+                'confidence': 0.9829099}
+
+            match = get_db_match(source_bibcode='2021arXiv210312030S')
+            self.assertEqual(len(match), 1)
+            self.assertDictEqual(match[0], {'source_bibcode': '2021arXiv210312030S',
+                                             'matched_bibcode': '2021CSF...15311505S',
+                                             'confidence': 0.9829099,
+                                             'matched': 1,
+                                             'scores': {}})
+
+    def test_count_matching_authors(self):
+        """
+        Test count_matching_authors function of the score module
+        """
+        # invalid reference authors
+        result = count_matching_authors(ref_authors=None, ads_authors=["Smith, J", "Jones, S"])
+        self.assertEqual(result, (0, 0, 0, False))
+
+        # test when matching_authors can match the last names
+        result = count_matching_authors(ref_authors="Brown", ads_authors=["Smith, J", "Jones, S", "Brown, A"])
+        self.assertEqual(result, (0, 2, 1, True))
+
+
+    def test_get_year_score(self):
+        """
+        Test get_year_score function of the score module
+        """
+        self.assertEqual(get_year_score(2024-2024), 1)
+        self.assertEqual(get_year_score(2024-2023), 1)
+        self.assertEqual(get_year_score(2024-2022), 0.75)
+        self.assertEqual(get_year_score(2024-2021), 0.5)
+        self.assertEqual(get_year_score(2024-2020), 0.25)
+        self.assertEqual(get_year_score(2024-2019), 0)
+        self.assertEqual(get_year_score(2019-2025), 1)
+
+    def test_encode_author(self):
+        """
+        Test encode_author function of the score module when author is invalid
+        """
+        self.assertIsNone(encode_author(None))
+
+    def test_get_doi_match(self):
+        """
+        Test get_doi_match function of the score module when there are no matches, or there are more than two matches
+        """
+        source_bibcode = '2022arXiv220606316S'
+        abstract = 'In the present paper, discussion of the canonical quantization of a weakly nonideal Bose gas at zero temperature along the lines of the famous Bogolyubov approach is continued. Contrary to the previous paper on this subject, here the two-body interaction potential is considered in the general form. It is shown that consideration of the first nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach, without any modification of the resulting effective Hamiltonian.'
+        title = 'Nonlinear corrections in the quantization of a weakly nonideal Bose gas   at zero temperature. II. The general case'
+        author = 'Smolyakov, Mikhail N.'
+        year = 2022
+        doi = ['10.1016/j.chaos.2021.111505']
+
+        # when there are no matches with doi
+        with mock.patch('oraclesrv.score.get_doi_match') as mock_get_doi_match:
+            mock_get_doi_match.return_value = None
+            self.assertEqual(get_doi_match(source_bibcode, abstract, title, author, year, doi, matched_docs=[]), [])
+
+        matched_docs = [{'bibcode': '2021CSF...15311505S',
+                         'abstract': 'In the present paper, quantization of a weakly nonideal Bose gas at zero temperature along the lines of the well-known Bogolyubov approach is performed. The analysis presented in this paper is based, in addition to the steps of the original Bogolyubov approach, on the use of nonoscillation modes (which are also solutions of the linearized Heisenberg equation) for recovering the canonical commutation relations in the linear approximation, as well as on the calculation of the first nonlinear correction to the solution of the linearized Heisenberg equation which satisfies the canonical commutation relations at the next order. It is shown that, at least in the case of free quasi-particles, consideration of the nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach.',
+                         'author_norm': ['Smolyakov, M'],
+                         'doctype': 'article',
+                         'identifier': ['10.1016/j.chaos.2021.111505', 'arXiv:2103.12030', '2021CSF...15311505S', '2021arXiv210312030S'],
+                         'title': ['Nonlinear corrections in the quantization of a weakly nonideal Bose gas at zero temperature'],
+                         'year': '2021',
+                         'doi': ['10.1016/j.chaos.2021.111505']},
+                        {'bibcode': '2020PhRvR...2c3276C',
+                         'abstract': 'We develop a quantum many-body theory of the Bose-Hubbard model based on the canonical quantization of the action derived from a Gutzwiller mean-field ansatz. Our theory is a systematic generalization of the Bogoliubov theory of weakly interacting gases. The control parameter of the theory, defined as the zero point fluctuations on top of the Gutzwiller mean-field state, remains small in all regimes. The approach provides accurate results throughout the whole phase diagram, from the weakly to the strongly interacting superfluid and into the Mott insulating phase. As specific examples of application, we study the two-point correlation functions, the superfluid stiffness, and the density fluctuations, for which quantitative agreement with available quantum Monte Carlo data is found. In particular, the two different universality classes of the superfluid-insulator quantum phase transition at integer and noninteger filling are recovered.',
+                         'author_norm': ['Caleffi, F', 'Capone, M', 'Menotti, C', 'Carusotto, I', 'Recati, A'],
+                         'doctype': 'article',
+                         'identifier': ['arXiv:1908.03470', '2019arXiv190803470C', '10.1103/PhysRevResearch.2.033276', '2020PhRvR...2c3276C'],
+                         'title': ['Quantum fluctuations beyond the Gutzwiller approximation in the Bose-Hubbard model'],
+                         'year': '2020',
+                         'doi': ['10.1016/j.chaos.2021.111505']}]
+        # when there are more than one matches with doi
+        with mock.patch('oraclesrv.score.get_doi_match') as mock_get_doi_match:
+            mock_get_doi_match.return_value = matched_docs
+            self.assertEqual(get_doi_match(source_bibcode, abstract, title, author, year, doi, matched_docs=[]), [])
+
+    def test_get_author_score(self):
+        """
+        Test get_author_score function of the score module when either or both authors are invalid
+        """
+        self.assertEqual(get_author_score(ref_authors='', ads_authors='Smith, J'), 0)
+        self.assertEqual(get_author_score(ref_authors='Smith, J', ads_authors=''), 0)
+        self.assertEqual(get_author_score(ref_authors='Smith, J', ads_authors=''), 0)
 
 
 if __name__ == "__main__":
