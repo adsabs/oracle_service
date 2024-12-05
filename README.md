@@ -1,8 +1,7 @@
 # oracle_service
 
 [![Build Status](https://travis-ci.org/adsabs/oracle_service.svg)](https://travis-ci.org/adsabs/oracle_service)
-[![Coverage Status](https://coveralls.io/repos/adsabs/oracle_service/badge.svg)](https://coveralls.io/r/adsabs/oracle_service?branch=master)
-
+[![Coverage Status](https://coveralls.io/repos/github/adsabs/oracle_service/badge.svg?branch=master)](https://coveralls.io/github/adsabs/oracle_service?branch=master)
 
 # ADS Oracle Service
 
