@@ -6,13 +6,16 @@ if project_home not in sys.path:
 import unittest
 import json
 import mock
+import requests
+from datetime import datetime
 
 from adsmutils import get_date
+from adsmsg import DocMatchRecordList
 
 from oraclesrv.tests.unittests.base import TestCaseDatabase
 from oraclesrv.utils import get_a_record, del_records, add_a_record, query_docmatch, query_source_score, lookup_confidence, \
     get_a_matched_record, query_docmatch, query_source_score, lookup_confidence, delete_tmp_matches, replace_tmp_with_canonical, \
-    delete_multi_matches, clean_db, get_tmp_bibcodes, get_muti_matches
+    delete_multi_matches, clean_db, get_tmp_bibcodes, get_muti_matches, add_records, get_solr_data_chunk
 from oraclesrv.score import get_matches, get_doi_match
 from oraclesrv.models import DocMatch, ConfidenceLookup, EPrintBibstemLookup
 
@@ -20,6 +23,19 @@ from sqlalchemy.exc import SQLAlchemyError
 
 
 class TestDatabase(TestCaseDatabase):
+
+    def setUp(self):
+        """
+        executed before each test
+        """
+        TestCaseDatabase.setUp(self)
+
+    def tearDown(self):
+        """
+        executed after each test
+        """
+        TestCaseDatabase.tearDown(self)
+        self.delete_docmatch_data()
 
     def add_docmatch_data(self):
         """
@@ -50,6 +66,8 @@ class TestDatabase(TestCaseDatabase):
 
         """
         self.delete_eprint_bibstem_lookup_data()
+
+        self.delete_confidence_lookup_data()
 
         with self.current_app.session_scope() as session:
             session.query(DocMatch).delete()
@@ -114,8 +132,6 @@ class TestDatabase(TestCaseDatabase):
         record = get_a_record('2021arXiv210312030G', '2021CSF...15311505G')
         self.assertEqual(record, {})
 
-        self.delete_docmatch_data()
-
     def test_del_records(self):
         """
         test querying db for a record
@@ -146,8 +162,6 @@ class TestDatabase(TestCaseDatabase):
         response = self.client.delete('/delete', data=json.dumps(docmatch_records), headers=headers)
         self.assertEqual(response._status_code, 200)
         self.assertEqual(response.json['status'], 'removed 0 records of 3 requested')
-
-        self.delete_docmatch_data()
 
     def test_docmatch(self):
         """
@@ -238,8 +252,6 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(len(matches), 1)
         self.assertDictEqual(matches[0], best_match)
 
-        self.delete_docmatch_data()
-
     def test_docmatch_changed_bibcode(self):
         """
         test when the bibcode saved in db is different from the current match, but the record is the same and needs
@@ -281,8 +293,6 @@ class TestDatabase(TestCaseDatabase):
                          'scores': {}}
         self.assertEqual(len(matches), 1)
         self.assertDictEqual(matches[0], current_match)
-
-        self.delete_docmatch_data()
 
     def test_query(self):
         """
@@ -332,8 +342,6 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(status_code, 200)
         self.assertEqual(result, [])
 
-        self.delete_docmatch_data()
-
     def test_query_source_score(self):
         """
 
@@ -348,7 +356,6 @@ class TestDatabase(TestCaseDatabase):
         ]
         results, _ = query_source_score()
         self.assertEqual(results, expected_results)
-        self.delete_confidence_lookup_data()
 
     def test_lookup_confidence(self):
         """
@@ -357,7 +364,6 @@ class TestDatabase(TestCaseDatabase):
         self.add_confidence_lookup_data()
         self.assertEqual(lookup_confidence('ADS'), (1.3, 200))
         self.assertEqual(lookup_confidence('incorrect'), (-1.0, 200))
-        self.delete_confidence_lookup_data()
 
     def test_source_score_endpoint(self):
         """
@@ -374,7 +380,6 @@ class TestDatabase(TestCaseDatabase):
         r = self.client.get(path='/source_score')
         result = json.loads(r.data)
         self.assertEqual(result['results'], expected_results)
-        self.delete_confidence_lookup_data()
 
     def test_lookup_confidence_endpoint(self):
         """
@@ -387,7 +392,6 @@ class TestDatabase(TestCaseDatabase):
         r = self.client.get(path='/confidence/incorrect')
         result = json.loads(r.data)
         self.assertEqual(result['confidence'], -1.0)
-        self.delete_confidence_lookup_data()
 
     def test_get_solr_data_exception(self):
         """
@@ -431,18 +435,21 @@ class TestDatabase(TestCaseDatabase):
             self.assertEqual(status_code, 404)
 
             # exception within delete_tmp_matches
-            status, message = delete_tmp_matches()
+            status, count, message = delete_tmp_matches()
             self.assertEqual(status, False)
+            self.assertEqual(count, -1)
             self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
 
             # exception within replace_tmp_with_canonical
-            status, message = replace_tmp_with_canonical()
+            status, count, message = replace_tmp_with_canonical()
             self.assertEqual(status, False)
+            self.assertEqual(count, -1)
             self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
 
             # exception within delete_multi_matches
-            status, message = delete_multi_matches()
+            status, count, message = delete_multi_matches()
             self.assertEqual(status, False)
+            self.assertEqual(count, -1)
             self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
 
             # exception within get_tmp_bibcodes
@@ -457,7 +464,7 @@ class TestDatabase(TestCaseDatabase):
 
     def test_delete_tmp_matches(self):
         """
-
+        Test delete_tmp_matches function of the utils module when succeeds
         """
         # add stub data and verify that there are 3 records in db
         self.add_docmatch_data()
@@ -487,14 +494,16 @@ class TestDatabase(TestCaseDatabase):
 
         # call delete_tmp_matches to remove tmp bibcode that also have canonical bibcode match
         # verify that one record was deleted
-        count, status = delete_tmp_matches()
+        status, count, message = delete_tmp_matches()
+        self.assertEqual(status, True)
         self.assertEqual(count, 1)
-        self.assertEqual(status, '')
+        self.assertEqual(message, 'deleted 1 records successfully')
 
         # call again and verify that no record was deleted
-        count, status = delete_tmp_matches()
+        status, count, message = delete_tmp_matches()
+        self.assertEqual(status, True)
         self.assertEqual(count, 0)
-        self.assertEqual(status, '')
+        self.assertEqual(message, 'no record found for deletion')
 
         # verify that now there are 4 records in the db
         result, status_code = query_docmatch({'start': 0, 'rows':10, 'date_cutoff': get_date('1972/01/01 00:00:00')})
@@ -506,7 +515,53 @@ class TestDatabase(TestCaseDatabase):
         self.assertNotEqual(result['pub_bibcode'], '2023MNRAS.tmp.1147K')
         self.assertEqual(result['pub_bibcode'], '2023MNRAS.522.3648K')
 
-        self.delete_docmatch_data()
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_delete_tmp_matches_error(self, mock_query_eprint_bibstem):
+        """
+        Test delete_tmp_matches function of the utils module when fails
+        """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv',
+                 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
+        # add stub data
+        self.add_docmatch_data()
+        # add duplicate matches, one with tmp bibcode and one with canonical bibcode, to the database
+        duplicate_matches = [
+            {
+                'source_bibcode': '2023arXiv230410160K',
+                'matched_bibcode': '2023MNRAS.tmp.1147K',
+                'confidence': 0.9957017
+            },                 {
+                'source_bibcode': '2023arXiv230410160K',
+                'matched_bibcode': '2023MNRAS.522.3648K',
+                'confidence': 0.9957017
+            },
+        ]
+        for match in duplicate_matches:
+            add_a_record(match)
+
+        # test when the delete from database fails
+        with mock.patch('oraclesrv.utils.current_app.session_scope') as session_mock:
+            session_instance = mock.Mock()
+            session_mock.return_value.__enter__.return_value = session_instance
+
+            # mock query and delete
+            mock_query = mock.Mock()
+            session_instance.query.return_value.filter.return_value = mock_query
+            mock_query.delete.return_value = 1
+            mock_query.delete.side_effect = SQLAlchemyError("Mock delete error")
+
+            status, count, message = delete_tmp_matches()
+            self.assertEqual(status, False)
+            self.assertEqual(count, -1)
+            self.assertEqual(message, 'SQLAlchemy: Mock delete error')
 
     def test_replace_tmp_with_canonical(self):
         """
@@ -516,9 +571,10 @@ class TestDatabase(TestCaseDatabase):
         self.add_confidence_lookup_data()
 
         # test when there is no record to replace
-        count, status = replace_tmp_with_canonical()
+        status, count, message = replace_tmp_with_canonical()
+        self.assertEqual(status, True)
         self.assertEqual(count, 0)
-        self.assertEqual(status, '')
+        self.assertEqual(message, 'no tmp reocrds found to replace')
 
         # add matches with tmp bibcodes
         tmp_matches = [
@@ -556,9 +612,10 @@ class TestDatabase(TestCaseDatabase):
                         '2023MNRAS.523.4624V', 'arXiv:2306.03140']},
         ]
         with mock.patch('oraclesrv.utils.get_solr_data_chunk', return_value=[docs, 200]):
-            count, status = replace_tmp_with_canonical()
+            status, count, message = replace_tmp_with_canonical()
+            self.assertEqual(status, True)
             self.assertEqual(count, 3)
-            self.assertEqual(status, '')
+            self.assertEqual(message, 'replaced 3 tmp records with its canonical counterpart')
 
         # verify the updates
         record = get_a_record('2023arXiv230410160K', '2023MNRAS.522.3648K')
@@ -574,12 +631,69 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(record['pub_bibcode'], '2023MNRAS.523.4624V')
         self.assertEqual(record['confidence'], 0.9942136)
 
-        self.delete_confidence_lookup_data()
-        self.delete_docmatch_data()
+    @mock.patch('oraclesrv.utils.lookup_confidence')
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_replace_tmp_with_canonical_error(self, mock_query_eprint_bibstem, mock_lookup_confidence):
+        """
+        Test replace_tmp_with_canonical function of the utils module when it fails
+        """
+        # mock the lookup_confidence delete value and eprint_bibstem patterns
+        mock_lookup_confidence.return_value = (-1, None)
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
+        tmp_matches = [
+            {
+                'source_bibcode': '2023arXiv230410160K',
+                'matched_bibcode': '2023MNRAS.tmp.1147K',
+                'confidence': 0.9957017
+            }
+        ]
+        for match in tmp_matches:
+            add_a_record(match)
+
+        # replacement
+        docs = [
+            {'bibcode': '2023MNRAS.522.3648K',
+            'identifier': ['2023MNRAS.522.3648K', 'arXiv:2304.10160', '2023arXiv230410160K', '2023MNRAS.tmp.1147K',
+                         '10.1093/mnras/stad1181', '10.48550/arXiv.2304.10160']},
+        ]
+
+        # now test when the delete from database fails
+        with mock.patch('oraclesrv.utils.current_app.session_scope') as session_mock:
+            with mock.patch('oraclesrv.utils.get_solr_data_chunk', return_value=[docs, 200]):
+                # mock session and query behavior
+                session_instance = mock.Mock()
+                session_mock.return_value.__enter__.return_value = session_instance
+
+                # mock the distinct filter chain to return a list of mock rows
+                mock_row = mock.Mock(pub_bibcode='2023MNRAS.tmp.1147K', eprint_bibcode='2023arXiv230410160K',confidence=0.9957017)
+                session_instance.query.return_value.distinct.return_value.filter.return_value.all.return_value = [mock_row]
+                session_instance.query.return_value.filter.return_value.all.return_value = []
+                session_instance.commit.side_effect = SQLAlchemyError("Mock delete error")
+
+                # mock session.no_autoflush as a context manager
+                no_autoflush_mock = mock.Mock()
+                session_instance.no_autoflush = mock.MagicMock()
+                session_instance.no_autoflush.__enter__.return_value = session_instance
+                session_instance.no_autoflush.__exit__.return_value = None
+
+                # mock the deletion to fail
+                session_instance.query.return_value.distinct.return_value.filter.return_value.all.return_value[0].delete.side_effect = SQLAlchemyError("Mock delete error")
+
+                status, count, message = replace_tmp_with_canonical()
+                self.assertEqual(status, False)
+                self.assertEqual(count, -1)
+                self.assertEqual(message, 'SQLAlchemy: Mock delete error')
 
     def test_delete_multi_matches(self):
         """
-
+        Test delete_multi_matches function of the utils module when succeeds
         """
         self.add_docmatch_data()
 
@@ -641,11 +755,47 @@ class TestDatabase(TestCaseDatabase):
         for match in multi_matches:
             add_a_record(match)
 
-        count, status = delete_multi_matches()
+        status, count, message = delete_multi_matches()
+        self.assertEqual(status, True)
         self.assertEqual(count, 7)
-        self.assertEqual(status, '')
+        self.assertEqual(message, 'deleted 7 multi-matches successfully')
 
-        self.delete_docmatch_data()
+    def test_delete_multi_matches_error(self):
+        """
+        Test delete_multi_matches function of the utils module when fails
+        """
+        self.add_docmatch_data()
+
+        # add multiple matches
+        multi_matches = [
+            {
+                'source_bibcode': '2019arXiv190102008A',
+                'matched_bibcode': '2018ADNDT.123..168A',
+                'confidence': -1
+            },{
+                'source_bibcode': '2019arXiv190102008A',
+                'matched_bibcode': '2019ADNDT.125..226A',
+                'confidence': -1
+            }
+        ]
+        for match in multi_matches:
+            add_a_record(match)
+
+        # test when the delete from database fails
+        with mock.patch('oraclesrv.utils.current_app.session_scope') as session_mock:
+            session_instance = mock.Mock()
+            session_mock.return_value.__enter__.return_value = session_instance
+
+            # mock query and delete
+            mock_query = mock.Mock()
+            session_instance.query.return_value.filter.return_value = mock_query
+            mock_query.delete.return_value = 1
+            mock_query.delete.side_effect = SQLAlchemyError("Mock delete error")
+
+            status, count, message = delete_multi_matches()
+            self.assertEqual(status, False)
+            self.assertEqual(count, -1)
+            self.assertEqual(message, 'SQLAlchemy: Mock delete error')
 
     def test_clean_db(self):
         """
@@ -656,8 +806,6 @@ class TestDatabase(TestCaseDatabase):
         counts, status = clean_db()
         self.assertEqual(counts, {'count_deleted_tmp': 0, 'count_updated_canonical': 0, 'count_deleted_multi_matches': 0})
         self.assertEqual(status, '')
-
-        self.delete_docmatch_data()
 
     def test_get_tmp_bibcodes(self):
         """
@@ -689,8 +837,6 @@ class TestDatabase(TestCaseDatabase):
                                    ('2023arXiv230602536C', '2023MNRAS.tmpL..73C', 0.9961402),
                                    ('2023arXiv230603140V', '2023MNRAS.tmp.1672V', 0.9942136)])
         self.assertEqual(status, 200)
-
-        self.delete_docmatch_data()
 
     def test_get_muti_matches(self):
         """
@@ -766,8 +912,6 @@ class TestDatabase(TestCaseDatabase):
                                    ('2022arXiv220500682A', '2023PhRvC.107e4908A', 0.9833502)])
         self.assertEqual(status, 200)
 
-        self.delete_docmatch_data()
-
     def test_adding_earth_science_records(self):
         """
 
@@ -792,8 +936,6 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(response._status_code, 200)
         self.assertEqual(response.json['status'], 'updated db with new data successfully')
 
-        self.delete_docmatch_data()
-
     def test_add_unrecognizable_match(self):
         """
 
@@ -816,7 +958,185 @@ class TestDatabase(TestCaseDatabase):
         self.assertEqual(response._status_code, 400)
         self.assertEqual(response.json['error'], 'Error: Invalid EPrint Bibcode.')
 
-        self.delete_docmatch_data()
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_add_records(self, mock_query_eprint_bibstem):
+        """
+        Test add_records function of the utils module
+        """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
+        docmatch_records = {
+            'status': 2,    #name='new', index=2, number=2,
+            'docmatch_records':[
+                {
+                    'source_bibcode': '2021arXiv210312030S',
+                    'matched_bibcode': '2021CSF...15311505S',
+                    'confidence': 0.9829099
+                },
+            ]
+        }
+        docmatch_records = DocMatchRecordList(**docmatch_records)
+
+        # mock session_scope to raise an SQLAlchemyError
+        with mock.patch.object(self.current_app, 'session_scope') as exception_mock:
+            sql_alchemy_error = SQLAlchemyError('DB not initialized properly, check: SQLALCHEMY_URL')
+            exception_mock.side_effect = sql_alchemy_error
+
+            status, message = add_records(docmatch_records)
+            self.assertEqual(status, False)
+            self.assertEqual(message, 'SQLAlchemy: DB not initialized properly, check: SQLALCHEMY_URL')
+
+        # test when the insert to database fails
+        with mock.patch('oraclesrv.utils.current_app.session_scope') as session_mock:
+            session_instance = mock.Mock()
+            session_mock.return_value.__enter__.return_value = session_instance
+
+            # now simulate an error during the insert operation
+            session_instance.execute.side_effect = SQLAlchemyError("Mock insert error")
+
+            status, message = add_records(docmatch_records)
+            self.assertEqual(status, False)
+            self.assertEqual(message, 'SQLAlchemy: Mock insert error')
+
+        # test when docmatch_records is invalid
+        status, message = add_records(DocMatchRecordList(**{}))
+        self.assertEqual(status, False)
+        self.assertEqual(message, 'unable to add records to the database')
+
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_del_records(self, mock_query_eprint_bibstem):
+        """
+        Test del_records function of the utils module when it succeed
+        """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
+        self.add_docmatch_data()
+
+        docmatch_records = {
+            'status': 2,    #name='new', index=2, number=2,
+            'docmatch_records':[
+                {
+                    'source_bibcode': '2021arXiv210312030S',
+                    'matched_bibcode': '2021CSF...15311505S',
+                    'confidence': 0.9829099
+                },
+            ]
+        }
+        docmatch_records = DocMatchRecordList(**docmatch_records)
+
+        status, message = del_records(docmatch_records)
+        self.assertEqual(status, True)
+        self.assertEqual(message, 'removed 1 records of 1 requested')
+
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_del_records_error(self, mock_query_eprint_bibstem):
+        """
+        Test del_records function of the utils module when it fails
+        """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
+        docmatch_records = {
+            'status': 2,    #name='new', index=2, number=2,
+            'docmatch_records':[
+                {
+                    'source_bibcode': '2021arXiv210312030S',
+                    'matched_bibcode': '2021CSF...15311505S',
+                    'confidence': 0.9829099
+                },
+            ]
+        }
+        docmatch_records = DocMatchRecordList(**docmatch_records)
+
+        # test when the delete from database fails
+        with mock.patch('oraclesrv.utils.current_app.session_scope') as session_mock:
+            session_instance = mock.Mock()
+            session_mock.return_value.__enter__.return_value = session_instance
+
+            # mock query and delete
+            mock_query = mock.Mock()
+            session_instance.query.return_value.filter.return_value = mock_query
+            mock_query.delete.return_value = 1
+            mock_query.delete.side_effect = SQLAlchemyError("Mock delete error")
+
+            status, message = del_records(docmatch_records)
+            self.assertEqual(status, False)
+            self.assertEqual(message, 'SQLAlchemy: Mock delete error')
+
+        # test when docmatch_records is invalid
+        status, message = del_records(DocMatchRecordList(**{}))
+        self.assertEqual(status, False)
+        self.assertEqual(message, 'unable to delete records from the database')
+
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_get_a_matched_record_found(self, mock_query_eprint_bibstem):
+        """
+        Test get_a_matched_record function of utils module
+        """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
+        add_a_record({'source_bibcode': '0000arXiv.........Z',
+                      'matched_bibcode': '0000MNRAS.........Z',
+                      'confidence': 0.9})
+
+        result = get_a_matched_record('0000MNRAS.........Z')
+        self.assertEqual(result['pub_bibcode'], '0000MNRAS.........Z')
+        self.assertEqual(result['eprint_bibcode'], '0000arXiv.........Z')
+        self.assertEqual(result['confidence'], 0.9)
+
+    def test_get_solr_data_chunk(self):
+        """
+        Test get_solr_data_chunk function
+        """
+
+        with mock.patch('oraclesrv.utils.requests.get') as mock_requests_get:
+
+            # mock the response object to simulate a non-200 status code
+            mock_response = mock.Mock()
+            mock_response.status_code = 400
+            mock_requests_get.return_value = mock_response
+
+            bibcodes = ['2021arXiv210312030S', '2017arXiv171111082H', '2018arXiv181105526S']
+
+            result, status_code = get_solr_data_chunk(bibcodes)
+
+            self.assertIsNone(result)
+            self.assertEqual(status_code, 400)
+
+
+            # test when RequestException happens
+            mock_requests_get.side_effect = requests.exceptions.RequestException("Mock request exception")
+
+            result, status_code = get_solr_data_chunk(bibcodes)
+            self.assertIsNone(result)
+            self.assertIsInstance(status_code, requests.exceptions.RequestException)
 
 
 if __name__ == "__main__":
