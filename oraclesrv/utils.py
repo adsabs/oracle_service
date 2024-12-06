@@ -36,7 +36,7 @@ def get_solr_data(rows, query, fl):
             new_headers[u'X-Original-Forwarded-For'] = flask.request.headers.get(u'X-Original-Forwarded-For', u'-')
             new_headers[u'X-Forwarded-For'] = flask.request.headers.get(u'X-Forwarded-For', u'-')
             new_headers[u'X-Amzn-Trace-Id'] = flask.request.headers.get(u'X-Amzn-Trace-Id', '-')
-        new_headers[u'Authorization'] = 'Bearer ' + current_app.config['ORACLE_SERVICE_ADSWS_API_TOKEN'] 
+        new_headers[u'Authorization'] = 'Bearer ' + current_app.config['ORACLE_SERVICE_ADSWS_API_TOKEN']
         response = requests.get(
             url=current_app.config['ORACLE_SERVICE_SOLRQUERY_URL'],
             headers=new_headers,
@@ -387,8 +387,10 @@ def del_records(docmatches):
                     count += session.query(DocMatch).filter(and_(DocMatch.eprint_bibcode == docmatch.eprint_bibcode,
                                                                  DocMatch.pub_bibcode == docmatch.pub_bibcode,
                                                                  DocMatch.confidence == docmatch.confidence)).delete(synchronize_session=False)
-                session.commit()
-                return True, count, 'removed ' + str(count) + ' records of ' + str(len(docmatches.docmatch_records)) + ' requested'
+                if count:
+                    session.commit()
+                    return True, 'removed ' + str(count) + ' records of ' + str(len(docmatches.docmatch_records)) + ' requested'
+                return False, 'unable to delete records from the database'
             except SQLAlchemyError as e:
                 session.rollback()
                 current_app.logger.error('SQLAlchemy: ' + str(e))
@@ -415,11 +417,11 @@ def query_docmatch(params):
                              DocMatch.date >= params['date_cutoff'].strftime("%Y-%m-%d %H:%M:%S"))) \
                 .order_by(DocMatch.pub_bibcode.asc()) \
                 .offset(params['start']).limit(params['rows']).all()
+
             if len(result) > 0:
                 # remove the last field, which is datetime, it is not needed to be returned
                 result = [r[0:3] for r in result]
             return result, 200
-        return [], 200
     except SQLAlchemyError as e:
         current_app.logger.error('SQLAlchemy: ' + str(e))
         return [], 404
@@ -475,15 +477,17 @@ def delete_tmp_matches():
                          DocMatch.confidence == multiples.c.confidence,
                          or_(DocMatch.pub_bibcode.like('%.tmp.%'), DocMatch.pub_bibcode.like('%.tmpL.%')))) \
                     .delete(synchronize_session=False)
-                session.commit()
-                return count, ''
+                if count:
+                    session.commit()
+                    return True, count, 'deleted ' + str(count) + ' records successfully'
+                return True, count, 'no record found for deletion'
             except SQLAlchemyError as e:
                 session.rollback()
                 current_app.logger.error('SQLAlchemy: ' + str(e))
-                return -1, 'SQLAlchemy: ' + str(e)
+                return False, -1, 'SQLAlchemy: ' + str(e)
     except SQLAlchemyError as e:
         current_app.logger.error('SQLAlchemy: ' + str(e))
-        return False, 'SQLAlchemy: ' + str(e)
+        return False, -1, 'SQLAlchemy: ' + str(e)
 
 def replace_tmp_with_canonical():
     """
@@ -531,15 +535,17 @@ def replace_tmp_with_canonical():
                                     docs.remove(doc)
                                     break
 
-                    session.commit()
-                return count, ''
+                    if count:
+                        session.commit()
+                        return True, count, 'replaced ' + str(count) + ' tmp records with its canonical counterpart'
+                return True, count, 'no tmp reocrds found to replace'
             except SQLAlchemyError as e:
                 session.rollback()
                 current_app.logger.error('SQLAlchemy: ' + str(e))
-                return -1, 'SQLAlchemy: ' + str(e)
+                return False, -1, 'SQLAlchemy: ' + str(e)
     except SQLAlchemyError as e:
         current_app.logger.error('SQLAlchemy: ' + str(e))
-        return False, 'SQLAlchemy: ' + str(e)
+        return False, -1, 'SQLAlchemy: ' + str(e)
 
 def delete_multi_matches():
     """
@@ -569,15 +575,18 @@ def delete_multi_matches():
                          DocMatch.confidence < multiples.c.confidence)) \
                     .delete(synchronize_session=False)
 
-                session.commit()
-                return count_eprint + count_pub, ''
+                count = count_eprint + count_pub
+                if count:
+                    session.commit()
+                    return True, count, 'deleted ' + str(count) + ' multi-matches successfully'
+                return True, count, 'no multi-match records found for deletion '
             except SQLAlchemyError as e:
                 session.rollback()
                 current_app.logger.error('SQLAlchemy: ' + str(e))
-                return -1, 'SQLAlchemy: ' + str(e)
+                return False, -1, 'SQLAlchemy: ' + str(e)
     except SQLAlchemyError as e:
         current_app.logger.error('SQLAlchemy: ' + str(e))
-        return False, 'SQLAlchemy: ' + str(e)
+        return False, -1, 'SQLAlchemy: ' + str(e)
 
 def clean_db():
     """
@@ -593,15 +602,15 @@ def clean_db():
     status_updated_canonical = status_deleted_multi_matches = ''
 
     # delete tmp matches
-    count_deleted_tmp, status_deleted_tmp = delete_tmp_matches()
+    status_deleted_tmp, count_deleted_tmp, _ = delete_tmp_matches()
     if count_deleted_tmp >= 0:
         counts['count_deleted_tmp'] = count_deleted_tmp
         # now update any tmp bibcode matches with their canonical counterpart, if available in solr
-        count_updated_canonical, status_updated_canonical = replace_tmp_with_canonical()
+        status_updated_canonical, count_updated_canonical, _ = replace_tmp_with_canonical()
         if count_updated_canonical >= 0:
             counts['count_updated_canonical'] = count_updated_canonical
             # finally remove the lower confidence matches of the multiple matches
-            count_deleted_multi_matches, status_deleted_multi_matches = delete_multi_matches()
+            status_deleted_multi_matches, count_deleted_multi_matches, _ = delete_multi_matches()
             if count_deleted_multi_matches >= 0:
                 counts['count_deleted_multi_matches'] = count_deleted_multi_matches
                 return counts, ''
@@ -621,7 +630,6 @@ def get_tmp_bibcodes():
                 # remove the last field, which is datetime, it is not needed to be returned
                 result = [r[0:3] for r in result]
             return result, 200
-        return [], 200
     except SQLAlchemyError as e:
         current_app.logger.error('SQLAlchemy: ' + str(e))
         return None, 'SQLAlchemy: ' + str(e)
@@ -645,7 +653,6 @@ def get_muti_matches():
                 .group_by(DocMatch.eprint_bibcode, DocMatch.pub_bibcode, DocMatch.confidence) \
                 .order_by(DocMatch.eprint_bibcode.asc(), DocMatch.pub_bibcode.asc()).all()
             return result, 200
-        return [], 200
     except SQLAlchemyError as e:
         current_app.logger.error('SQLAlchemy: ' + str(e))
         return None, 'SQLAlchemy: ' + str(e)

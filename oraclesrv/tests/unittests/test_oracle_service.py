@@ -18,7 +18,7 @@ from oraclesrv.score import clean_metadata, get_matches, to_unicode, get_db_matc
     encode_author, get_doi_match, get_author_score
 from oraclesrv.doc_matching import DocMatching
 from oraclesrv.utils import get_solr_data_recommend, get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_pubnote, \
-    get_solr_data_match_doctype_case, get_solr_data_chunk
+    get_solr_data_match_doctype_case, get_solr_data_chunk, get_solr_data
 
 
 class test_oracle(TestCaseDatabase):
@@ -1489,6 +1489,68 @@ class test_oracle(TestCaseDatabase):
         self.assertEqual(get_author_score(ref_authors='', ads_authors='Smith, J'), 0)
         self.assertEqual(get_author_score(ref_authors='Smith, J', ads_authors=''), 0)
         self.assertEqual(get_author_score(ref_authors='Smith, J', ads_authors=''), 0)
+
+    def test_get_solr_data(self):
+        """
+        Test get_solr_data function of the utils module
+        """
+        # test when connection pool is enabled
+        with mock.patch('oraclesrv.utils.current_app.client.get') as mock_requests_get:
+            # mock response from requests.get
+            mock_response = mock.Mock()
+            mock_response.raise_for_status = mock.Mock()
+            mock_response.json.return_value = {
+                'response': {
+                    'numFound': 1,
+                    'docs': [
+                        {'bibcode': '2022TEST..........S'}
+                    ]
+                }
+            }
+            mock_requests_get.return_value = mock_response
+
+            result, status_code = get_solr_data(rows=1, query='2022TEST..........S', fl='bibcode')
+
+            self.assertEqual(result, ['2022TEST..........S'])
+            self.assertEqual(status_code, mock_response.status_code)
+
+        # test when connection pool is disabled
+        self.current_app.config['REQUESTS_CONNECTION_POOL_ENABLED'] = False
+
+        # mock has_request_context and request.headers.get
+        with mock.patch('oraclesrv.utils.flask.has_request_context', return_value=True), \
+             mock.patch('oraclesrv.utils.flask.request') as mock_request, \
+             mock.patch('oraclesrv.utils.requests.get') as mock_requests_get:
+
+            # mock request headers
+            mock_request.headers.get.side_effect = lambda key, default=None: f"mock-{key}"
+
+            # mock response from requests.get
+            mock_response = mock.Mock()
+            mock_response.raise_for_status = mock.Mock()
+            mock_response.json.return_value = {
+                'response': {
+                    'numFound': 1,
+                    'docs': [
+                        {'bibcode': '2022TEST..........S'}
+                    ]
+                }
+            }
+            mock_requests_get.return_value = mock_response
+
+            result, status_code = get_solr_data(rows=1, query='bibcode:2024TEST..........S', fl='bibcode')
+
+            self.assertEqual(result, ['2022TEST..........S'])
+            self.assertEqual(status_code, mock_response.status_code)
+
+    def test_get_solr_data_match(self):
+        """
+        Test get_solr_data_match function of the utils module
+        """
+        result, query, status_code = get_solr_data_match(abstract='', title='', doctype='eprint', match_doctype='article', extra_filter='')
+        self.assertEqual(result, [])
+        self.assertEqual(query, '')
+        self.assertEqual(status_code, 200)
 
 
 if __name__ == "__main__":
