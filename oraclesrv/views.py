@@ -15,7 +15,6 @@ from adsmsg import DocMatchRecordList
 from google.protobuf.json_format import Parse, ParseError
 
 from oraclesrv.utils import get_solr_data_recommend, add_records, del_records, query_docmatch, query_source_score, lookup_confidence
-from oraclesrv.keras_model import create_keras_model
 from oraclesrv.doc_matching import DocMatching, get_requests_params
 
 import oraclesrv.utils as utils
@@ -151,17 +150,17 @@ def read_history_get(function, reader):
     """
     current_app.logger.debug('received GET request to read history')
 
-    the_function = function
-    the_reader = reader
+    the_function = function if function != 'None' else None
+    the_reader = reader  if reader != 'None' else None
     payload = request.args.to_dict(flat=False)
-    # try extracting `function` from payload now
-    if the_function is None:
+    # try extracting `function` from payload
+    if the_function is None and payload:
         the_function = verify_the_function(get_requests_params(payload, 'function'))
     # try extracting `reader` from payload or request it from adsws
-    if the_reader is None:
+    if the_reader is None and payload:
         the_reader = get_the_reader(request, payload)
-        if the_reader is None:
-            return return_response(results={'error': 'unable to obtain reader id'}, status_code=400)
+    if not (the_function and the_reader):
+        return return_response(results={'error': 'unable to obtain reader id'}, status_code=400)
 
     return read_history(payload, the_function, the_reader)
 
@@ -219,7 +218,7 @@ def add():
         payload = dict(request.form)  # post data in form encoding
 
     if not payload:
-        return return_response({'error': 'no data received'}, 400)
+        return return_response({'error': 'no payload received'}, 400)
 
     if len(payload) == 0:
         return return_response({'error': 'no records received to update db'}, 400)
@@ -245,6 +244,8 @@ def add():
 @bp.route('/delete', methods=['DELETE'])
 def delete():
     """
+
+    :return:
     """
     try:
         payload = request.get_json(force=True)  # post data in json
@@ -252,7 +253,7 @@ def delete():
         payload = dict(request.form)  # post data in form encoding
 
     if not payload:
-        return return_response({'error': 'no information received'}, 400)
+        return return_response({'error': 'no payload received'}, 400)
 
     if len(payload) == 0:
         return return_response({'error': 'no records received to delete from db'}, 400)
@@ -267,25 +268,12 @@ def delete():
     except ParseError as e:
         return return_response({'error': 'unable to extract data from protobuf structure -- %s' % (e)}, 400)
 
-    status, count, text = del_records(data)
+    status, text = del_records(data)
     if status == True:
-        current_app.logger.info('completed request to delete from db total of %d records' % (count))
+        current_app.logger.info('successfully %s' % (text))
         return return_response({'status': text}, 200)
     current_app.logger.info('failed to delete from db %d bibcodes' % (len(payload)))
     return return_response({'error': text}, 400)
-
-@advertise(scopes=['ads:oracle-service'], rate_limit=[1000, 3600 * 24])
-@bp.route('/keras_model', methods=['PUT'])
-def keras_model():
-    """
-    endpoint to be called locally only whenever the models needs be changed
-
-    :return:
-    """
-    # to save a new model
-    create_keras_model()
-
-    return return_response({'OK': 'objects saved'}, 200)
 
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
 @bp.route('/query', methods=['POST'])
