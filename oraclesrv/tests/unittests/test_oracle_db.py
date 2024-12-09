@@ -132,9 +132,9 @@ class TestDatabase(TestCaseDatabase):
         record = get_a_record('2021arXiv210312030G', '2021CSF...15311505G')
         self.assertEqual(record, {})
 
-    def test_del_records(self):
+    def test_delete_endpoint(self):
         """
-        test querying db for a record
+        test deleting records from db
         """
         self.add_docmatch_data()
 
@@ -160,8 +160,8 @@ class TestDatabase(TestCaseDatabase):
 
         # attempt to delete for the second time the same data
         response = self.client.delete('/delete', data=json.dumps(docmatch_records), headers=headers)
-        self.assertEqual(response._status_code, 200)
-        self.assertEqual(response.json['status'], 'removed 0 records of 3 requested')
+        self.assertEqual(response._status_code, 400)
+        self.assertEqual(response.json['error'], 'unable to delete records from the database')
 
     def test_docmatch(self):
         """
@@ -1137,6 +1137,30 @@ class TestDatabase(TestCaseDatabase):
             result, status_code = get_solr_data_chunk(bibcodes)
             self.assertIsNone(result)
             self.assertIsInstance(status_code, requests.exceptions.RequestException)
+
+    def add_docmatch_data(self):
+        """
+        Add docmatch data
+        """
+        self.add_eprint_bibstem_lookup_data()
+
+        docmatch_data = [
+                        ('2021arXiv210312030S', '2021CSF...15311505S', 0.9829099),
+                        ('2017arXiv171111082H', '2018ConPh..59...16H', 0.9877064),
+                        ('2018arXiv181105526S', '2022NuPhB.98015830S', 0.97300124),
+        ]
+
+        docmatch_records = []
+        for record in docmatch_data:
+            docmatch_record = {'source_bibcode': record[0],
+                               'matched_bibcode': record[1],
+                               'confidence': record[2]}
+            docmatch_records.append(docmatch_record)
+
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        response = self.client.put('/add', data=json.dumps(docmatch_records), headers=headers)
+        self.assertEqual(response._status_code, 200)
+        self.assertEqual(response.json['status'], 'updated db with new data successfully')
 
 
 if __name__ == "__main__":
