@@ -243,15 +243,15 @@ class TestDatabase(TestCaseDatabase):
         self.add_docmatch_data()
 
         # now attempting to get a match returns the match with highest confidence
-        # with either source bibcode or one of the matching bibcodes
+        # only if it the best match's source bibcode and the source bibcode are equal
+        # so since the best match is and the two source bibcodes do not match, no results are returned
         best_match = {'source_bibcode': '2021arXiv210312030S',
                       'matched_bibcode': '2021CSF...15311505S',
                       'confidence': 0.9829099,
                       'matched': 1,
                       'scores': {}}
         matches = get_matches(source_bibcode, doctype, abstract, title, author, year, None, matched_docs)
-        self.assertEqual(len(matches), 1)
-        self.assertDictEqual(matches[0], best_match)
+        self.assertEqual(len(matches), 0)
 
     def test_docmatch_changed_bibcode(self):
         """

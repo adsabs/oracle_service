@@ -208,17 +208,17 @@ def get_matches(source_bibcode, doctype, abstract, title, author, year, doi, mat
             # see if the confidence is higher then the current match
             # and if yes, ignore current match
             elif (source_bibcode in prev_bibcodes or match_bibcode in prev_bibcodes) and prev_confidence > confidence:
-                confidence = prev_confidence
                 scores = []
                 # either or both have been matched, so use the previous match
-                # find out if source bibcode is an eprint to assing it correctly
-                if not (source_bibcode in prev_bibcodes and match_bibcode in prev_bibcodes):
-                    if doctype == current_app.config['ORACLE_DOCTYPE_EPRINT']:
-                        source_bibcode = prev_match['eprint_bibcode']
-                        match_bibcode = prev_match['pub_bibcode']
-                    elif doctype == current_app.config['ORACLE_DOCTYPE_PUB']:
-                        source_bibcode = prev_match['pub_bibcode']
-                        match_bibcode = prev_match['eprint_bibcode']
+                # find out which way we are matching to assing it correctly
+                if doctype == current_app.config['ORACLE_DOCTYPE_EPRINT'] and source_bibcode == prev_match['eprint_bibcode']:
+                    match_bibcode = prev_match['pub_bibcode']
+                    confidence = prev_confidence
+                elif doctype == current_app.config['ORACLE_DOCTYPE_PUB'] and source_bibcode == prev_match['pub_bibcode']:
+                    match_bibcode = prev_match['eprint_bibcode']
+                    confidence = prev_confidence
+                else:
+                    continue
 
         result = {'source_bibcode': source_bibcode, 'matched_bibcode': match_bibcode,
                   'confidence': confidence, 'matched': int(confidence > 0.5),
