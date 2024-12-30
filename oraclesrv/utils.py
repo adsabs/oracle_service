@@ -672,3 +672,18 @@ def query_eprint_bibstem():
     except SQLAlchemyError as e:
         current_app.logger.error('SQLAlchemy: ' + str(e))
         return [], 404
+
+def is_eprint_bibcode(source_bibcode):
+    """
+    check if source_bibcode is an eprint_bibcode
+
+    :param source_bibcode:
+    :return:
+    """
+    eprint_bibstems, _ = query_eprint_bibstem()
+
+    for bibstem in eprint_bibstems:
+        if bibstem['name'] in ['arXiv', 'Earth Science'] and re.search(bibstem['pattern'], source_bibcode):
+            return True
+
+    return False

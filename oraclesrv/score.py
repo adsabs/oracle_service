@@ -15,6 +15,7 @@ from flask import current_app
 
 from oraclesrv.utils import get_a_record, get_a_matched_record
 from oraclesrv.keras_model import KerasModel
+from oraclesrv.models import DocMatch
 
 confidence_model = KerasModel()
 
@@ -113,11 +114,11 @@ def get_refereed_score(is_refereed):
         return current_app.config['ORACLE_SERVICE_REFEREED_SCORE']
     return current_app.config['ORACLE_SERVICE_NOT_REFEREED_SCORE']
 
-re_match_arXiv = re.compile(r'(\d\d\d\darXiv.*)')
-def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs):
+def get_matches(source_bibcode, doctype, abstract, title, author, year, doi, matched_docs):
     """
 
     :param source_bibcode:
+    :param doctype:
     :param abstract:
     :param title:
     :param author:
@@ -177,7 +178,7 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
         # if we are matching with eprints, consider eprint a refereed manuscript
         # else check the flag for refereed in the property field
         # if not refereed we want to penalize the confidence score
-        match_refereed = True if 'eprint' in doc.get('doctype') else (True if 'REFEREED' in doc.get('property', []) else False)
+        match_refereed = True if current_app.config['ORACLE_DOCTYPE_EPRINT'] in doc.get('doctype') else (True if 'REFEREED' in doc.get('property', []) else False)
         confidence = float(confidence_format % (confidence_model.predict(scores) * get_refereed_score(match_refereed)))
 
         # see if either of these bibcodes have already been matched
@@ -209,9 +210,15 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
             elif (source_bibcode in prev_bibcodes or match_bibcode in prev_bibcodes) and prev_confidence > confidence:
                 confidence = prev_confidence
                 scores = []
+                # either or both have been matched, so use the previous match
+                # find out if source bibcode is an eprint to assing it correctly
                 if not (source_bibcode in prev_bibcodes and match_bibcode in prev_bibcodes):
-                    source_bibcode = prev_match['eprint_bibcode']
-                    match_bibcode = prev_match['pub_bibcode']
+                    if doctype == current_app.config['ORACLE_DOCTYPE_EPRINT']:
+                        source_bibcode = prev_match['eprint_bibcode']
+                        match_bibcode = prev_match['pub_bibcode']
+                    elif doctype == current_app.config['ORACLE_DOCTYPE_PUB']:
+                        source_bibcode = prev_match['pub_bibcode']
+                        match_bibcode = prev_match['eprint_bibcode']
 
         result = {'source_bibcode': source_bibcode, 'matched_bibcode': match_bibcode,
                   'confidence': confidence, 'matched': int(confidence > 0.5),
@@ -237,10 +244,11 @@ def get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs
 
     return []
 
-def get_doi_match(source_bibcode, abstract, title, author, year, doi, matched_docs):
+def get_doi_match(source_bibcode, doctype, abstract, title, author, year, doi, matched_docs):
     """
 
     :param source_bibcode:
+    :param doctype:
     :param abstract:
     :param title:
     :param author:
@@ -249,7 +257,7 @@ def get_doi_match(source_bibcode, abstract, title, author, year, doi, matched_do
     :param matched_docs:
     :return:
     """
-    results = get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs)
+    results = get_matches(source_bibcode, doctype, abstract, title, author, year, doi, matched_docs)
     if len(results) == 1:
         return results
     return []

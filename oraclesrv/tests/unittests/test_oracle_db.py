@@ -15,7 +15,7 @@ from adsmsg import DocMatchRecordList
 from oraclesrv.tests.unittests.base import TestCaseDatabase
 from oraclesrv.utils import get_a_record, del_records, add_a_record, query_docmatch, query_source_score, lookup_confidence, \
     get_a_matched_record, query_docmatch, query_source_score, lookup_confidence, delete_tmp_matches, replace_tmp_with_canonical, \
-    delete_multi_matches, clean_db, get_tmp_bibcodes, get_muti_matches, add_records, get_solr_data_chunk
+    delete_multi_matches, clean_db, get_tmp_bibcodes, get_muti_matches, add_records, get_solr_data_chunk, is_eprint_bibcode
 from oraclesrv.score import get_matches, get_doi_match
 from oraclesrv.models import DocMatch, ConfidenceLookup, EPrintBibstemLookup
 
@@ -172,6 +172,7 @@ class TestDatabase(TestCaseDatabase):
         title = 'Nonlinear corrections in the quantization of a weakly nonideal Bose gas   at zero temperature. II. The general case'
         author = 'Smolyakov, Mikhail N.'
         year = 2022
+        doctype = 'eprint'
         matched_docs = [{'bibcode': '2021CSF...15311505S',
                          'abstract': 'In the present paper, quantization of a weakly nonideal Bose gas at zero temperature along the lines of the well-known Bogolyubov approach is performed. The analysis presented in this paper is based, in addition to the steps of the original Bogolyubov approach, on the use of nonoscillation modes (which are also solutions of the linearized Heisenberg equation) for recovering the canonical commutation relations in the linear approximation, as well as on the calculation of the first nonlinear correction to the solution of the linearized Heisenberg equation which satisfies the canonical commutation relations at the next order. It is shown that, at least in the case of free quasi-particles, consideration of the nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach.',
                          'author_norm': ['Smolyakov, M'],
@@ -231,7 +232,7 @@ class TestDatabase(TestCaseDatabase):
                       'confidence': 0.7142998,
                       'matched': 1,
                       'scores': {'abstract': 0.76, 'title': 0.98, 'author': 1, 'year': 1}}
-        matches = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
+        matches = get_matches(source_bibcode, doctype, abstract, title, author, year, None, matched_docs)
         self.assertEqual(len(matches), 1)
         self.assertDictEqual(matches[0], best_match)
 
@@ -248,7 +249,7 @@ class TestDatabase(TestCaseDatabase):
                       'confidence': 0.9829099,
                       'matched': 1,
                       'scores': {}}
-        matches = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
+        matches = get_matches(source_bibcode, doctype, abstract, title, author, year, None, matched_docs)
         self.assertEqual(len(matches), 1)
         self.assertDictEqual(matches[0], best_match)
 
@@ -283,7 +284,7 @@ class TestDatabase(TestCaseDatabase):
                          'title':['Numerical investigation of non-Gaussianities in the phase and modulus of density Fourier modes'],
                          'year':'2022'}]
         # match it
-        matches = get_doi_match(source_doc['bibcode'], source_doc['abstract'], source_doc['title'],
+        matches = get_doi_match(source_doc['bibcode'], source_doc['doctype'], source_doc['abstract'], source_doc['title'],
                               source_doc['author'], source_doc['year'], source_doc['doi'], matched_docs)
         # current match the same as prev with the new bibcode
         current_match = {'source_bibcode': '2021arXiv210911714Q',
@@ -1138,29 +1139,14 @@ class TestDatabase(TestCaseDatabase):
             self.assertIsNone(result)
             self.assertIsInstance(status_code, requests.exceptions.RequestException)
 
-    def add_docmatch_data(self):
+    def test_is_eprint_bibcode(self):
         """
-        Add docmatch data
+        Test is_eprint_bibcode function
         """
-        self.add_eprint_bibstem_lookup_data()
+        self.add_docmatch_data()
 
-        docmatch_data = [
-                        ('2021arXiv210312030S', '2021CSF...15311505S', 0.9829099),
-                        ('2017arXiv171111082H', '2018ConPh..59...16H', 0.9877064),
-                        ('2018arXiv181105526S', '2022NuPhB.98015830S', 0.97300124),
-        ]
-
-        docmatch_records = []
-        for record in docmatch_data:
-            docmatch_record = {'source_bibcode': record[0],
-                               'matched_bibcode': record[1],
-                               'confidence': record[2]}
-            docmatch_records.append(docmatch_record)
-
-        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-        response = self.client.put('/add', data=json.dumps(docmatch_records), headers=headers)
-        self.assertEqual(response._status_code, 200)
-        self.assertEqual(response.json['status'], 'updated db with new data successfully')
+        self.assertTrue(is_eprint_bibcode('2021arXiv210312030S'))
+        self.assertFalse(is_eprint_bibcode('2021CSF...15311505S'))
 
 
 if __name__ == "__main__":
