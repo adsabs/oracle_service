@@ -1,8 +1,8 @@
 from flask import current_app
 
-from oraclesrv.utils import get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_doctype_case, get_solr_data_match_pubnote
+from oraclesrv.utils import get_solr_data_match, get_solr_data_match_doi, get_solr_data_match_doctype_case, \
+    get_solr_data_match_pubnote, add_a_record, is_eprint_bibcode
 from oraclesrv.score import clean_metadata, get_matches, encode_author, format_author, get_doi_match, get_db_match
-from oraclesrv.utils import add_a_record
 
 def get_requests_params(payload, param, default_value=None, default_type=str):
     """
@@ -43,6 +43,9 @@ class DocMatching(object):
         self.save_to_db = save
         self.extra_filter = get_requests_params(payload, 'extra_filter')
 
+        if not self.doctype:
+            self.doctype = current_app.config['ORACLE_DOCTYPE_EPRINT'] if is_eprint_bibcode(self.source_bibcode) else current_app.config['ORACLE_DOCTYPE_PUB']
+
     def create_and_return_response(self, match, query, comment=None):
         """
 
@@ -70,7 +73,7 @@ class DocMatching(object):
         results, query, solr_status_code = get_solr_data_match_doctype_case(self.author, self.year, self.doctype, '"%s"' % '" OR "'.join(self.match_doctype))
         # if any records from solr
         if isinstance(results, list) and len(results) > 0:
-            match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)
+            match = get_matches(self.source_bibcode, self.doctype, self.abstract, self.title, self.author, self.year, None, results)
             if not match:
                 current_app.logger.debug('No result from solr for %s.'%doctype)
                 comment += ' No result from solr for %s.'%doctype
@@ -92,7 +95,7 @@ class DocMatching(object):
         # if any records from solr
         # compute the score, if score is 0 doi was wrong, so continue on to query using similar
         if isinstance(results, list) and len(results) > 0:
-            match = get_doi_match(self.source_bibcode, self.abstract, self.title, self.author, self.year, self.doi, results)
+            match = get_doi_match(self.source_bibcode, self.doctype, self.abstract, self.title, self.author, self.year, self.doi, results)
             if match:
                 return self.create_and_return_response(match, query), ''
             else:
@@ -117,7 +120,7 @@ class DocMatching(object):
         # if any records from solr
         # compute the score, if score is 0 doi was wrong, so continue on to query using similar
         if isinstance(results, list) and len(results) > 0:
-            match = get_doi_match(self.source_bibcode, self.abstract, self.title, self.author, self.year, self.doi, results)
+            match = get_doi_match(self.source_bibcode, self.doctype, self.abstract, self.title, self.author, self.year, self.doi, results)
             if match:
                 return self.create_and_return_response(match, query), ''
             else:
@@ -150,7 +153,7 @@ class DocMatching(object):
                 return self.create_and_return_response([], query, 'status code: %d' % solr_status_code)
         # got records from solr, see if we can get a match
         else:
-            match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, self.doi, results)
+            match = get_matches(self.source_bibcode, self.doctype, self.abstract, self.title, self.author, self.year, self.doi, results)
             if len(match) > 0:
                 return self.create_and_return_response(match, query, comment)
             # otherwise if no match with abstract, and we think we should have this in solr
@@ -178,7 +181,7 @@ class DocMatching(object):
             return self.create_and_return_response(match='', query=query, comment=comment)
 
         # got results with title, see if it can be matched
-        match = get_matches(self.source_bibcode, self.abstract, self.title, self.author, self.year, None, results)
+        match = get_matches(self.source_bibcode, self.doctype, self.abstract, self.title, self.author, self.year, None, results)
         return self.create_and_return_response(match, query, comment)
 
     def save_match(self, result):
@@ -247,7 +250,7 @@ class DocMatching(object):
         self.match_doctype = ' OR '.join(self.match_doctype)
 
         # if doi is available from the eprint try query on doi first
-        if self.doi and self.doctype == 'eprint':
+        if self.doi and self.doctype == current_app.config['ORACLE_DOCTYPE_EPRINT']:
             result, comment = self.query_doi(comment)
             if result:
                 self.save_match(result)

@@ -42,6 +42,7 @@ class test_oracle(TestCaseDatabase):
         author = 'Smolyakov, Mikhail N.'
         year = 2022
         doi = ['10.1016/j.chaos.2021.111505']
+        doctype = 'eprint'
 
         matched_docs = [{'bibcode': '2021CSF...15311505S',
                          'abstract': 'In the present paper, quantization of a weakly nonideal Bose gas at zero temperature along the lines of the well-known Bogolyubov approach is performed. The analysis presented in this paper is based, in addition to the steps of the original Bogolyubov approach, on the use of nonoscillation modes (which are also solutions of the linearized Heisenberg equation) for recovering the canonical commutation relations in the linear approximation, as well as on the calculation of the first nonlinear correction to the solution of the linearized Heisenberg equation which satisfies the canonical commutation relations at the next order. It is shown that, at least in the case of free quasi-particles, consideration of the nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach.',
@@ -54,7 +55,7 @@ class test_oracle(TestCaseDatabase):
                          'property': ['ARTICLE','EPRINT_OPENACCESS','ESOURCE','OPENACCESS','REFEREED']}]
 
         # abstract, no doi
-        match = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
+        match = get_matches(source_bibcode, doctype, abstract, title, author, year, None, matched_docs)
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
                                         'matched_bibcode': '2021CSF...15311505S',
@@ -63,7 +64,7 @@ class test_oracle(TestCaseDatabase):
                                         'scores': {'abstract': 0.76, 'title': 0.98, 'author': 1, 'year': 1}})
 
         # no abstract, no doi
-        match = get_matches(source_bibcode, '', title, author, year, None, matched_docs)
+        match = get_matches(source_bibcode, doctype, '', title, author, year, None, matched_docs)
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
                                         'matched_bibcode': '2021CSF...15311505S',
@@ -72,7 +73,7 @@ class test_oracle(TestCaseDatabase):
                                         'scores': {'abstract': None, 'title': 0.98, 'author': 1, 'year': 1}})
 
         # abstract, doi
-        match = get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs)
+        match = get_matches(source_bibcode, doctype, abstract, title, author, year, doi, matched_docs)
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
                                         'matched_bibcode': '2021CSF...15311505S',
@@ -81,7 +82,7 @@ class test_oracle(TestCaseDatabase):
                                         'scores': {'abstract': 0.76, 'title': 0.98, 'author': 1, 'year': 1, 'doi': 1}})
 
         # no abstract, doi
-        match = get_matches(source_bibcode, '', title, author, year, doi, matched_docs)
+        match = get_matches(source_bibcode, doctype, '', title, author, year, doi, matched_docs)
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
                                         'matched_bibcode': '2021CSF...15311505S',
@@ -109,6 +110,7 @@ class test_oracle(TestCaseDatabase):
         author = 'Smolyakov, Mikhail N.'
         year = 2022
         doi = ['10.1016/j.chaos.2021.111505']
+        doctype = 'eprint'
 
         # when multiple matches are found, and one record is returned
         matched_docs = [{'bibcode': '2021CSF...15311505S',
@@ -130,7 +132,7 @@ class test_oracle(TestCaseDatabase):
                          'property': ['ARTICLE', 'ESOURCE', 'NOT REFEREED']}
                         ]
 
-        match = get_matches(source_bibcode, '', title, author, year, doi, matched_docs)
+        match = get_matches(source_bibcode, doctype, '', title, author, year, doi, matched_docs)
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
                                         'matched_bibcode': '2021CSF...15311505S',
@@ -155,7 +157,7 @@ class test_oracle(TestCaseDatabase):
                          'property': ['ARTICLE', 'ESOURCE', 'NOT REFEREED']}
                         ]
 
-        match = get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs)
+        match = get_matches(source_bibcode, doctype, abstract, title, author, year, doi, matched_docs)
 
         self.assertEqual(len(match), 2)
         self.assertEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
@@ -171,9 +173,9 @@ class test_oracle(TestCaseDatabase):
 
     @mock.patch('oraclesrv.score.get_a_record')
     @mock.patch('oraclesrv.utils.query_eprint_bibstem')
-    def test_get_matches_when_prev_match_exist(self, mock_query_eprint_bibstem, mock_get_a_record):
+    def test_get_matches_when_prev_match_exist_source_eprint(self, mock_query_eprint_bibstem, mock_get_a_record):
         """
-        Test get_matches function of the score module when there is a prev match
+        Test get_matches function of the score module when there is a prev match and source bibcode is eprint
         """
         # mock the eprint_bibstem patterns
         mock_query_eprint_bibstem.return_value = (
@@ -190,6 +192,7 @@ class test_oracle(TestCaseDatabase):
         author = 'Smolyakov, Mikhail N.'
         year = 2022
         doi = ['10.1016/j.chaos.2021.111505']
+        doctype = 'eprint'
 
         matched_docs = [{'bibcode': '2021CSF...15311505S',
                          'abstract': 'In the present paper, quantization of a weakly nonideal Bose gas at zero temperature along the lines of the well-known Bogolyubov approach is performed. The analysis presented in this paper is based, in addition to the steps of the original Bogolyubov approach, on the use of nonoscillation modes (which are also solutions of the linearized Heisenberg equation) for recovering the canonical commutation relations in the linear approximation, as well as on the calculation of the first nonlinear correction to the solution of the linearized Heisenberg equation which satisfies the canonical commutation relations at the next order. It is shown that, at least in the case of free quasi-particles, consideration of the nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach.',
@@ -209,10 +212,59 @@ class test_oracle(TestCaseDatabase):
             'confidence': 0.9
         }
 
-        match = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
+        match = get_matches(source_bibcode, doctype, abstract, title, author, year, None, matched_docs)
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022arXiv220606316S',
                                         'matched_bibcode': '2022CSF...27421615S',
+                                        'confidence': 0.9,
+                                        'matched': 1,
+                                        'scores': {}})
+
+    @mock.patch('oraclesrv.score.get_a_record')
+    @mock.patch('oraclesrv.utils.query_eprint_bibstem')
+    def test_get_matches_when_prev_match_exist_source_pub(self, mock_query_eprint_bibstem, mock_get_a_record):
+        """
+        Test get_matches function of the score module when there is a prev match and source bibcode is pub
+        """
+        # mock the eprint_bibstem patterns
+        mock_query_eprint_bibstem.return_value = (
+            [
+                {'name': 'arXiv', 'pattern': r'^(\d\d\d\d(?:arXiv|acc\.phys|adap\.org|alg\.geom|ao\.sci|astro\.ph|atom\.ph|bayes\.an|chao\.dyn|chem\.ph|cmp\.lg|comp\.gas|cond\.mat|cs\.|dg\.ga|funct\.an|gr\.qc|hep\.ex|hep\.lat|hep\.ph|hep\.th|math\.|math\.ph|mtrl\.th|nlin\.|nucl\.ex|nucl\.th|patt\.sol|physics\.|plasm\.ph|q\.alg|q\.bio|quant\.ph|solv\.int|supr\.con))'},
+                {'name': 'Earth Science', 'pattern': r'^(\d\d\d\d(?:EaArX|esoar))'},
+            ],
+            200
+        )
+
+        source_bibcode = '2021CSF...15311505S'
+        abstract = 'In the present paper, discussion of the canonical quantization of a weakly nonideal Bose gas at zero temperature along the lines of the famous Bogolyubov approach is continued. Contrary to the previous paper on this subject, here the two-body interaction potential is considered in the general form. It is shown that consideration of the first nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach, without any modification of the resulting effective Hamiltonian.'
+        title = 'Nonlinear corrections in the quantization of a weakly nonideal Bose gas   at zero temperature. II. The general case'
+        author = 'Smolyakov, Mikhail N.'
+        year = 2022
+        doi = ['10.1016/j.chaos.2021.111505']
+        doctype = 'article'
+
+        matched_docs = [{'bibcode': '2022arXiv220606316S',
+                         'abstract': 'In the present paper, quantization of a weakly nonideal Bose gas at zero temperature along the lines of the well-known Bogolyubov approach is performed. The analysis presented in this paper is based, in addition to the steps of the original Bogolyubov approach, on the use of nonoscillation modes (which are also solutions of the linearized Heisenberg equation) for recovering the canonical commutation relations in the linear approximation, as well as on the calculation of the first nonlinear correction to the solution of the linearized Heisenberg equation which satisfies the canonical commutation relations at the next order. It is shown that, at least in the case of free quasi-particles, consideration of the nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach.',
+                         'author_norm': ['Smolyakov, M'],
+                         'doctype': 'article',
+                         'doi': ['10.1016/j.chaos.2021.111505'],
+                         'identifier': ['10.1016/j.chaos.2021.111505', 'arXiv:2103.12030', '2021CSF...15311505S', '2021arXiv210312030S'],
+                         'title': ['Nonlinear corrections in the quantization of a weakly nonideal Bose gas at zero temperature'],
+                         'year': '2021',
+                         'property': ['ARTICLE','EPRINT_OPENACCESS','ESOURCE','OPENACCESS','REFEREED']}]
+
+
+        # mock the previous match with higher confidence
+        mock_get_a_record.return_value = {
+            'eprint_bibcode': '2022arXiv220606316S',
+            'pub_bibcode': '2022CSF...27421615S',
+            'confidence': 0.9
+        }
+
+        match = get_matches(source_bibcode, doctype, abstract, title, author, year, None, matched_docs)
+        self.assertEqual(len(match), 1)
+        self.assertDictEqual(match[0], {'source_bibcode': '2022CSF...27421615S',
+                                        'matched_bibcode': '2022arXiv220606316S',
                                         'confidence': 0.9,
                                         'matched': 1,
                                         'scores': {}})
@@ -227,6 +279,7 @@ class test_oracle(TestCaseDatabase):
         author = 'Smolyakov, Mikhail N.'
         year = 2022
         doi = ['10.1016/j.chaos.2021.111505']
+        doctype = 'eprint'
 
         # when match and source are the same
         matched_docs = [{'bibcode': '2022arXiv220606316S',
@@ -239,7 +292,7 @@ class test_oracle(TestCaseDatabase):
                          'year': '2022',
                          'property': ['ARTICLE', 'ESOURCE', 'NOT REFEREED']}
                         ]
-        match = get_matches(source_bibcode, abstract, title, author, year, None, matched_docs)
+        match = get_matches(source_bibcode, doctype, abstract, title, author, year, None, matched_docs)
         self.assertEqual(match, [])
 
     @mock.patch('oraclesrv.utils.query_eprint_bibstem')
@@ -262,6 +315,7 @@ class test_oracle(TestCaseDatabase):
         author = 'Panda, Swayamtrupta; Dias dos Santos, Denimara'
         year = 2022
         doi = ['10.31059/aat.vol3.iss1.pp27-34']
+        doctype = 'eprint'
 
         matched_docs = [{'bibcode': '2021arXiv211101521P',
                          'abstract': 'The CaFe Project involves the study of the properties of the low ionization emission lines (LILs) pertaining to the broad-line region (BLR) in active galaxies. These emission lines, especially the singly-ionized iron (Fe II) in the optical and the corresponding singly-ionized calcium (Ca II) in the near-infrared (NIR) are found to show a strong correlation in their emission strengths, i.e. with respect to the broad H$\\beta$ emission line, the latter also belonging to the same category of LILs. The origin of this correlation is attributed to the similarity in the physical conditions necessary to emit these lines - especially in terms of the strength of the ionization from the central continuum source and the local number density of available matter in these regions. In this paper, we focus on the issue of the spectral energy distribution (SED) characteristic to a prototypical Type-1 Narrow-line Seyfert galaxy (NLS1) - I Zw 1. We extract the continuum from quasi-simultaneous spectroscopic measurements ranging from the near-UV ($\\sim$1200A) to the near-infrared ($\\sim$24000A) to construct the SED and supplement it with archival X-ray measurements available for this source. Using the photoionization code CLOUDY, we assess and compare the contribution of the prominent \"Big Blue Bump\" seen in our SED versus the SED used in our previous work, wherein the latter was constructed from archival, multi-epoch photometric measurements. Following the prescription from our previous work, we constrain the physical parameter space to optimize the emission from these LILs and discuss the implication of the use of a \"better\" SED.',
@@ -274,7 +328,7 @@ class test_oracle(TestCaseDatabase):
                          'doi_pubnote': '10.31059/aat.vol3.iss1.pp27-34'}]
 
         # abstract, no doi
-        match = get_matches(source_bibcode, abstract, title, author, year, doi, matched_docs)
+        match = get_matches(source_bibcode, doctype, abstract, title, author, year, doi, matched_docs)
         self.assertEqual(len(match), 1)
         self.assertDictEqual(match[0], {'source_bibcode': '2022AcAT....3a..27P',
                                         'matched_bibcode': '2021arXiv211101521P',
@@ -540,9 +594,12 @@ class test_oracle(TestCaseDatabase):
                 mock.patch('oraclesrv.doc_matching.get_matches', return_value=[]), \
                 mock.patch.object(self.current_app.logger, 'debug') as mock_debug:
 
+            # twice calling,
+            # first some results with abstract, but no match
+            # second no results with title
             mock_get_solr_data_match.side_effect = [
-                ([{'bibcode': '2000Bibcode.......A'}], 'mock_query_with_abstract', 200),  # some results with abstract, but no match
-                ([], 'mock_query_with_abstract', 400)  # no results with title
+                ([{'bibcode': '2000Bibcode.......A'}], 'mock_query_with_abstract', 200),
+                ([], 'mock_query_with_abstract', 400)
             ]
 
             result = doc_match.query_abstract_or_title(comment)
@@ -706,11 +763,12 @@ class test_oracle(TestCaseDatabase):
         author = 'Smolyakov, Mikhail N.'
         year = 2022
         doi = ['10.1016/j.chaos.2021.111505']
+        doctype = 'eprint'
 
         # when there are no matches with doi
         with mock.patch('oraclesrv.score.get_doi_match') as mock_get_doi_match:
             mock_get_doi_match.return_value = None
-            self.assertEqual(get_doi_match(source_bibcode, abstract, title, author, year, doi, matched_docs=[]), [])
+            self.assertEqual(get_doi_match(source_bibcode, doctype, abstract, title, author, year, doi, matched_docs=[]), [])
 
         matched_docs = [{'bibcode': '2021CSF...15311505S',
                          'abstract': 'In the present paper, quantization of a weakly nonideal Bose gas at zero temperature along the lines of the well-known Bogolyubov approach is performed. The analysis presented in this paper is based, in addition to the steps of the original Bogolyubov approach, on the use of nonoscillation modes (which are also solutions of the linearized Heisenberg equation) for recovering the canonical commutation relations in the linear approximation, as well as on the calculation of the first nonlinear correction to the solution of the linearized Heisenberg equation which satisfies the canonical commutation relations at the next order. It is shown that, at least in the case of free quasi-particles, consideration of the nonlinear correction automatically solves the problem of nonconserved particle number, which is inherent to the original approach.',
@@ -731,7 +789,7 @@ class test_oracle(TestCaseDatabase):
         # when there are more than one matches with doi
         with mock.patch('oraclesrv.score.get_doi_match') as mock_get_doi_match:
             mock_get_doi_match.return_value = matched_docs
-            self.assertEqual(get_doi_match(source_bibcode, abstract, title, author, year, doi, matched_docs=[]), [])
+            self.assertEqual(get_doi_match(source_bibcode, doctype, abstract, title, author, year, doi, matched_docs=[]), [])
 
     def test_get_solr_data_match(self):
         """

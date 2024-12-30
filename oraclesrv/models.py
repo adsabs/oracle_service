@@ -1,6 +1,8 @@
 
 import re
 
+from flask import current_app
+
 from sqlalchemy import Float, String, Column, DateTime, func
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -56,10 +58,10 @@ class DocMatch(Base):
         :return:
         """
         if source_bibcode_doctype:
-            if source_bibcode_doctype == 'eprint':
+            if source_bibcode_doctype == current_app.config['ORACLE_DOCTYPE_EPRINT']:
                 self.eprint_bibcode = source_bibcode
                 return self.eprint_bibcode
-            if source_bibcode_doctype == 'article':
+            if source_bibcode_doctype == current_app.config['ORACLE_DOCTYPE_PUB']:
                 self.eprint_bibcode = matched_bibcode
                 return self.eprint_bibcode
 

@@ -832,3 +832,7 @@ ORACLE_SERVICE_GENERAL_YEAR_DELTA = 2
 ORACLE_MAX_RECORDS_ADD = 100
 # number of records that can be deleted in one call
 ORACLE_MAX_RECORDS_DEL = 100
+
+
+ORACLE_DOCTYPE_EPRINT = 'eprint'
+ORACLE_DOCTYPE_PUB = 'article'
